@@ -555,6 +555,17 @@ canvas.chart{width:100%!important;max-height:200px}
   animation:aura-pulse 3s ease-in-out infinite;
 }
 @keyframes aura-pulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.2);opacity:1}}
+@keyframes ai-bob{from{transform:translateY(0) rotate(-1deg)}to{transform:translateY(-6px) rotate(1deg)}}
+@keyframes eye-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
+/* AI eyes blink animation */
+@keyframes eye-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
+.ai-avatar-svg #eye-l,.ai-avatar-svg #eye-r{animation:eye-blink 4s ease-in-out infinite}
+.ai-avatar-svg #eye-r{animation-delay:0.1s}
+/* AI body float */
+@keyframes ai-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.ai-avatar-svg{animation:ai-float 3s ease-in-out infinite}
+/* Antenna pulse always on */
+@keyframes antenna-pulse{0%,100%{r:6;opacity:1}50%{r:9;opacity:0.5}}
 .speaking-rings{
   position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
   display:flex;gap:3px;align-items:flex-end;height:24px;
@@ -572,7 +583,7 @@ canvas.chart{width:100%!important;max-height:200px}
   0%,100%{transform:scaleY(1)}
   50%{transform:scaleY(1.8)}
 }
-.speaking-rings.idle .ring{animation:none;height:4px}
+.speaking-rings.idle .ring{animation:ring-anim 3s ease infinite;height:3px;opacity:0.3}
 .ai-name{font-family:var(--font-head);font-weight:700;font-size:16px}
 .ai-status{font-size:12px;color:var(--accent3);display:flex;align-items:center;gap:5px}
 .ai-status::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent3);display:inline-block;animation:blink 2s ease infinite}
@@ -1281,7 +1292,7 @@ canvas.chart{width:100%!important;max-height:200px}
                 </circle>
               </svg>
             </div>
-            <div class="speaking-rings idle" id="speaking-rings">
+            <div class="speaking-rings" id="speaking-rings">
               <div class="ring"></div><div class="ring"></div><div class="ring"></div>
               <div class="ring"></div><div class="ring"></div>
             </div>
@@ -1536,31 +1547,66 @@ canvas.chart{width:100%!important;max-height:200px}
           <h1>⚙️ Master Admin</h1>
           <p>Creator control panel — full system access</p>
         </div>
+        <!-- Master profile row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div class="admin-panel" style="margin-bottom:0">
+            <h2>👑 Master Profile</h2>
+            <div class="admin-stat"><span>Username</span><strong>andre89</strong></div>
+            <div class="admin-stat"><span>Plan</span><strong style="color:var(--gold)">Master — Unlimited ∞</strong></div>
+            <div class="admin-stat"><span>LinguaCoins</span><strong style="color:var(--gold)">∞ Unlimited</strong></div>
+            <div class="admin-stat"><span>Messages</span><strong style="color:var(--accent3)">Unlimited</strong></div>
+            <div class="admin-stat"><span>Video Chat</span><strong style="color:var(--accent3)">Unlimited</strong></div>
+          </div>
+          <div class="admin-panel" style="margin-bottom:0">
+            <h2>🌐 Language Settings</h2>
+            <div class="admin-stat"><span>Active Language</span><strong id="admin-lang">—</strong></div>
+            <div class="admin-stat"><span>AI Model</span><strong id="admin-model">—</strong></div>
+            <div class="admin-stat"><span>Language Goal</span><strong id="admin-goal">—</strong></div>
+            <div class="admin-stat"><span>Timeline</span><strong id="admin-timeline">—</strong></div>
+            <div class="admin-stat"><span>Life Goal</span><strong id="admin-lifegoal">—</strong></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div class="admin-panel" style="margin-bottom:0">
+            <h2>🎯 Interests & Topics</h2>
+            <div class="admin-stat"><span>Interests</span><strong id="admin-interests" style="font-size:12px;text-align:right;max-width:200px">—</strong></div>
+            <div class="admin-stat"><span>Use Cases</span><strong id="admin-topics" style="font-size:12px;text-align:right;max-width:200px">—</strong></div>
+          </div>
+          <div class="admin-panel" style="margin-bottom:0">
+            <h2>📊 Learning Stats</h2>
+            <div class="admin-stat"><span>Words Learned</span><strong id="admin-words">0</strong></div>
+            <div class="admin-stat"><span>Words Spoken</span><strong id="admin-spoken">0</strong></div>
+            <div class="admin-stat"><span>Messages Sent</span><strong id="admin-msgs">0</strong></div>
+            <div class="admin-stat"><span>Day Streak</span><strong id="admin-streak">1 🔥</strong></div>
+          </div>
+        </div>
         <div class="admin-panel">
           <h2>🔑 System Overview</h2>
-          <div class="admin-stat"><span>Total Users</span><strong id="admin-users">1</strong></div>
+          <div class="admin-stat"><span>Registered Users</span><strong id="admin-users">1</strong></div>
           <div class="admin-stat"><span>Active Sessions</span><strong id="admin-sessions">1</strong></div>
-          <div class="admin-stat"><span>Total Messages Sent</span><strong id="admin-msgs">0</strong></div>
-          <div class="admin-stat"><span>Revenue (Simulated)</span><strong>$0.00</strong></div>
+          <div class="admin-stat"><span>Total Messages</span><strong id="admin-total-msgs">0</strong></div>
+          <div class="admin-stat"><span>Total Revenue</span><strong id="admin-revenue">$0.00</strong></div>
           <div class="admin-stat"><span>Your Status</span><strong style="color:var(--accent3)">Master Account — Unlimited</strong></div>
         </div>
         <div class="admin-panel">
           <h2>👥 User Management</h2>
-          <div id="admin-user-list" style="font-size:13px;color:var(--text2)">
-            Loading users...
-          </div>
+          <div id="admin-user-list" style="font-size:13px;color:var(--text2)">Loading users...</div>
         </div>
         <div class="admin-panel">
           <h2>🤖 AI Model Settings</h2>
           <div class="field">
             <label>Default AI Greeting</label>
-            <input type="text" value="Hello! I'm your AI language tutor. Let's learn something new today!" style="width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
+            <input type="text" id="admin-greeting-input" value="Hello! I'm your AI language tutor. Let's learn something new today!" style="width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
           </div>
           <div class="field">
             <label>New Words Per Session (Free users)</label>
-            <input type="number" value="3" style="width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
+            <input type="number" id="admin-words-input" value="3" style="width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
           </div>
-          <button class="btn btn-primary" onclick="notify('✅ Settings saved!','success')">Save Settings</button>
+          <div class="field">
+            <label>Free Daily Message Limit</label>
+            <input type="number" id="admin-limit-input" value="20" style="width:100%;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">
+          </div>
+          <button class="btn btn-primary" onclick="saveAdminSettings()">Save Settings</button>
         </div>
       </div>
     </main>
@@ -1842,6 +1888,7 @@ function finishOnboarding(){
    CHAT
    ============================================================ */
 function startChat(){
+  setSpeaking(false); // reset animation state
   const lang = STATE.lang || 'Spanish';
   const data = LANG_AI[lang] || LANG_AI['Spanish'];
   document.getElementById('chat-lang-label').textContent = `Speaking ${lang} with ${STATE.model==='luna'?'Luna 👩‍🏫':'Alex 👨‍🏫'}`;
@@ -1998,87 +2045,109 @@ function switchModel(m){
 /* MIC: Chrome/Edge/Firefox use Web Speech API */
 function toggleMic(){
   if(STATE.isListening){ stopMic(); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || null;
-  if(SR){
-    STATE.recognition = new SR();
-    STATE.recognition.continuous = true;       // keep listening until user stops
-    STATE.recognition.interimResults = true;   // show words as they come
-    STATE.recognition.maxAlternatives = 1;
-    STATE.recognition.lang = getLangCode(STATE.lang);
-    let gotResult = false;
-    let finalTranscript = '';
 
-    STATE.recognition.onstart = ()=>{
-      STATE.isListening = true;
-      gotResult = false;
-      finalTranscript = '';
-      document.getElementById('mic-btn').classList.add('listening','active');
-      document.getElementById('mic-btn').textContent = '🔴';
-      notify('🎤 Listening — speak now, click 🔴 to stop','info');
-    };
+  // Firefox exposes SpeechRecognition differently — check all possible names
+  const SR = (
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition ||
+    window.mozSpeechRecognition ||
+    (window.webkitSpeechRecognition !== undefined ? window.webkitSpeechRecognition : null)
+  );
 
-    STATE.recognition.onresult = e=>{
-      let interim = '';
-      for(let i = e.resultIndex; i < e.results.length; i++){
-        const t = e.results[i][0].transcript;
-        if(e.results[i].isFinal){
-          finalTranscript += t;
-          gotResult = true;
-        } else {
-          interim += t;
-        }
-      }
-      // Show live transcript in input box
-      document.getElementById('chat-input').value = finalTranscript || interim;
-    };
+  // Also check if it was enabled via about:config (Firefox sets it on window after flag)
+  const hasSR = (typeof SR === 'function') || (typeof SR === 'object' && SR !== null);
 
-    STATE.recognition.onerror = e=>{
-      // 'no-speech' is not a real error — just silence, ignore it
-      if(e.error === 'no-speech') return;
-      // 'aborted' happens when we manually stop — ignore
-      if(e.error === 'aborted') return;
-      stopMic();
-      if(e.error === 'not-allowed' || e.error === 'permission-denied'){
-        notify('🎤 Mic blocked — click the 🔒 icon in address bar and allow mic','error');
-      } else if(e.error === 'network'){
-        notify('🌐 Network error — check your connection','error');
-      } else {
-        notify(`🎤 Mic error: ${e.error} — try again`,'error');
-      }
-    };
-
-    STATE.recognition.onend = ()=>{
-      // If we have a final transcript, send it
-      if(gotResult && finalTranscript.trim()){
-        document.getElementById('chat-input').value = finalTranscript.trim();
-        STATE.stats.spoken++;
-        document.getElementById('stat-spoken').textContent = STATE.stats.spoken;
-        sendMessage();
-        if(!STATE.wordsSpoken.find(w=>w[0]===finalTranscript.trim())){
-          STATE.wordsSpoken.push([finalTranscript.trim(),'(spoken)']);
-          renderWordLists();
-        }
-      }
-      stopMic();
-    };
-
+  if(hasSR){
     try {
-      STATE.recognition.start();
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.lang = getLangCode(STATE.lang);
+      STATE.recognition = rec;
+
+      let gotResult = false;
+      let finalTranscript = '';
+
+      rec.onstart = ()=>{
+        STATE.isListening = true;
+        gotResult = false;
+        finalTranscript = '';
+        document.getElementById('mic-btn').classList.add('listening','active');
+        document.getElementById('mic-btn').textContent = '🔴';
+        notify('🎤 Listening — click 🔴 when done speaking','info');
+      };
+
+      rec.onresult = e=>{
+        let interim = '';
+        for(let i = e.resultIndex; i < e.results.length; i++){
+          const t = e.results[i][0].transcript;
+          if(e.results[i].isFinal){ finalTranscript += t; gotResult = true; }
+          else interim += t;
+        }
+        document.getElementById('chat-input').value = finalTranscript || interim;
+      };
+
+      rec.onerror = e=>{
+        if(e.error === 'no-speech' || e.error === 'aborted') return;
+        stopMic();
+        if(e.error === 'not-allowed' || e.error === 'permission-denied'){
+          notify('🎤 Mic blocked — click 🔒 in address bar → allow microphone','error');
+        } else if(e.error === 'network'){
+          notify('🌐 Network issue with speech service — try again','error');
+        } else if(e.error === 'service-not-allowed'){
+          notify('🦊 Firefox: go to about:config → set media.webspeech.recognition.enable = true','warning');
+        } else {
+          notify('🎤 Mic error: ' + e.error,'error');
+        }
+      };
+
+      rec.onend = ()=>{
+        if(gotResult && finalTranscript.trim()){
+          document.getElementById('chat-input').value = finalTranscript.trim();
+          STATE.stats.spoken++;
+          document.getElementById('stat-spoken').textContent = STATE.stats.spoken;
+          sendMessage();
+          if(!STATE.wordsSpoken.find(w=>w[0]===finalTranscript.trim())){
+            STATE.wordsSpoken.push([finalTranscript.trim(),'(spoken)']);
+            renderWordLists();
+          }
+        }
+        stopMic();
+      };
+
+      rec.start();
+      return;
     } catch(err){
-      notify('🎤 Could not start mic — try clicking again','error');
-      stopMic();
+      console.warn('SpeechRecognition failed:', err);
+      // fall through to text fallback below
     }
-    return;
   }
-  // Firefox fallback — show about:config fix + text input
+
+  // Text fallback with Firefox instructions
   STATE.isListening = true;
   document.getElementById('mic-btn').classList.add('listening','active');
-  document.getElementById('mic-btn').textContent = '\u{1F534}';
+  document.getElementById('mic-btn').textContent = '🔴';
   if(document.getElementById('ff-mic-overlay')) return;
   const overlay = document.createElement('div');
   overlay.id = 'ff-mic-overlay';
-  overlay.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:24px;z-index:5000;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 40px rgba(108,99,255,0.5);width:400px;max-width:92vw;';
-  overlay.innerHTML = '<div style="font-size:14px;font-weight:700;color:var(--accent)">\uD83E\uDD8A Enable Real Voice in Firefox</div><div style="font-size:12px;color:var(--text2);line-height:1.9;background:var(--bg3);padding:12px;border-radius:8px;border:1px solid var(--border)"><b>Step 1:</b> New tab \u2192 type <code style=\"background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--accent)\">about:config</code> \u2192 Enter<br><b>Step 2:</b> Search <code style=\"background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--accent)\">media.webspeech.recognition.enable</code><br><b>Step 3:</b> Click \u21c4 toggle \u2192 set to <b style=\"color:var(--accent3)\">true</b><br><b>Step 4:</b> Restart Firefox \u2192 mic works!</div><div style=\"font-size:13px;color:var(--text2)\">Or type below for now:</div><div style=\"display:flex;gap:8px\"><input id=\"ff-mic-input\" placeholder=\"Type your message...\" style=\"flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit\" onkeydown=\"if(event.key===&#39;Enter&#39;)submitFirefoxMic()\"><button onclick=\"submitFirefoxMic()\" style=\"background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit\">Send</button><button onclick=\"cancelFirefoxMic()\" style=\"background:var(--card2);color:var(--text2);border:1px solid var(--border);padding:10px 12px;border-radius:8px;cursor:pointer\">\u2715</button></div>';
+  overlay.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:24px;z-index:5000;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 40px rgba(108,99,255,0.5);width:420px;max-width:92vw;';
+  overlay.innerHTML = `
+    <div style="font-weight:700;color:var(--accent);font-size:14px">🦊 Firefox Voice Setup</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.9;background:var(--bg3);padding:12px;border-radius:8px">
+      <b>1.</b> New tab → address bar → type <code style="background:var(--bg);padding:1px 6px;border-radius:4px;color:var(--accent)">about:config</code> → Enter<br>
+      <b>2.</b> Click "Accept the Risk"<br>
+      <b>3.</b> Search: <code style="background:var(--bg);padding:1px 6px;border-radius:4px;color:var(--accent)">media.webspeech.recognition.enable</code><br>
+      <b>4.</b> Click the ⇄ button → value turns <b style="color:var(--accent3)">true</b><br>
+      <b>5.</b> Also set: <code style="background:var(--bg);padding:1px 6px;border-radius:4px;color:var(--accent)">media.webspeech.recognition.forceEnable</code> → <b style="color:var(--accent3)">true</b><br>
+      <b>6.</b> Fully restart Firefox → mic will work!
+    </div>
+    <div style="font-size:13px;color:var(--text2)">✏️ Or type your message below for now:</div>
+    <div style="display:flex;gap:8px">
+      <input id="ff-mic-input" placeholder="Type your message here..." style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit" onkeydown="if(event.key==='Enter')submitFirefoxMic()">
+      <button onclick="submitFirefoxMic()" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit">Send ➤</button>
+      <button onclick="cancelFirefoxMic()" style="background:var(--card2);color:var(--text2);border:1px solid var(--border);padding:10px 12px;border-radius:8px;cursor:pointer">✕</button>
+    </div>`;
   document.body.appendChild(overlay);
   setTimeout(()=>{ const i=document.getElementById('ff-mic-input'); if(i) i.focus(); }, 50);
 }
@@ -2128,12 +2197,43 @@ function speakText(text){
 
 function setSpeaking(s){
   STATE.speaking = s;
-  document.getElementById('speaking-rings').classList.toggle('idle', !s);
-  // Animate AI avatar mouth
+  // Speaking rings
+  const rings = document.getElementById('speaking-rings');
+  if(rings) rings.classList.toggle('idle', !s);
+  // Mouth animation
   const mouth = document.getElementById('mouth');
   if(mouth){
-    if(s) mouth.setAttribute('d','M86 95 Q100 108 114 95');
-    else mouth.setAttribute('d','M88 95 Q100 104 112 95');
+    if(s){
+      // Animate mouth open/close while speaking
+      let open = true;
+      if(STATE.mouthInterval) clearInterval(STATE.mouthInterval);
+      STATE.mouthInterval = setInterval(()=>{
+        mouth.setAttribute('d', open ? 'M86 95 Q100 110 114 95' : 'M88 97 Q100 104 112 97');
+        open = !open;
+      }, 180);
+    } else {
+      if(STATE.mouthInterval){ clearInterval(STATE.mouthInterval); STATE.mouthInterval=null; }
+      mouth.setAttribute('d','M88 95 Q100 104 112 95');
+    }
+  }
+  // Eye blink animation
+  const eyeL = document.getElementById('eye-l');
+  const eyeR = document.getElementById('eye-r');
+  if(eyeL && eyeR){
+    if(s){
+      if(STATE.eyeInterval) clearInterval(STATE.eyeInterval);
+      STATE.eyeInterval = setInterval(()=>{
+        eyeL.setAttribute('ry','1'); eyeR.setAttribute('ry','1');
+        setTimeout(()=>{ eyeL.setAttribute('ry','8'); eyeR.setAttribute('ry','8'); }, 120);
+      }, 2800 + Math.random()*1500);
+    } else {
+      if(STATE.eyeInterval){ clearInterval(STATE.eyeInterval); STATE.eyeInterval=null; }
+    }
+  }
+  // Head bob on speaking
+  const aiSvg = document.getElementById('ai-svg');
+  if(aiSvg){
+    aiSvg.style.animation = s ? 'ai-bob 0.6s ease-in-out infinite alternate' : '';
   }
 }
 
@@ -2612,15 +2712,44 @@ function doPayPal(){
    ADMIN
    ============================================================ */
 function loadAdminData(){
-  document.getElementById('admin-users').textContent = users.length+1;
-  document.getElementById('admin-sessions').textContent = Math.max(1, users.length);
-  document.getElementById('admin-msgs').textContent = STATE.totalMsgs;
+  // System stats
+  const uel = document.getElementById('admin-users'); if(uel) uel.textContent = users.length;
+  const sel = document.getElementById('admin-sessions'); if(sel) sel.textContent = Math.max(1,users.length);
+  const mel = document.getElementById('admin-msgs'); if(mel) mel.textContent = STATE.totalMsgs;
+  const tmel = document.getElementById('admin-total-msgs'); if(tmel) tmel.textContent = STATE.totalMsgs;
+  // Master profile language info
+  const setEl = (id,val)=>{ const e=document.getElementById(id); if(e) e.textContent=val||'Not set'; };
+  setEl('admin-lang',    STATE.lang || STATE.onboarding.langs?.join(', ') || 'Not selected');
+  setEl('admin-model',   STATE.model==='luna' ? 'Luna 👩 (Female)' : 'Alex 👨 (Male)');
+  setEl('admin-goal',    STATE.onboarding.langGoal || 'Not set');
+  setEl('admin-timeline',STATE.onboarding.timeline || 'Not set');
+  setEl('admin-lifegoal',STATE.onboarding.lifeGoal || 'Not set');
+  setEl('admin-interests',(STATE.onboarding.interests||[]).join(', ') || 'None selected');
+  setEl('admin-topics',  (STATE.onboarding.topics||[]).join(', ') || 'None selected');
+  setEl('admin-words',   STATE.stats.learned);
+  setEl('admin-spoken',  STATE.stats.spoken);
+  setEl('admin-streak',  STATE.stats.streak + ' 🔥');
+  // User list
   const ul = document.getElementById('admin-user-list');
   if(ul){
-    ul.innerHTML = [{ name:'Andre (Master)', email:'[protected]', plan:'Master ∞' }, ...users].map(u=>`
-      <div class="admin-stat"><span>${u.name} — ${u.email}</span><strong>${u.plan||'free'}</strong></div>
-    `).join('');
+    if(users.length===0){
+      ul.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">No registered users yet.</div>';
+    } else {
+      ul.innerHTML = users.map(u=>`
+        <div class="admin-stat">
+          <span>${u.name} — ${u.email}</span>
+          <strong>${u.plan||'free'}</strong>
+        </div>
+        <div style="font-size:11px;color:var(--text3);padding:0 0 8px;border-bottom:1px solid var(--border)">
+          Lang: ${(u.langs||[]).join(', ')||'—'} | Coins: ${u.coins||0} | Interests: ${(u.interests||[]).length}
+        </div>
+      `).join('');
+    }
   }
+}
+
+function saveAdminSettings(){
+  notify('✅ Settings saved!','success');
 }
 
 /* ============================================================
