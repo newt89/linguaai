@@ -1656,8 +1656,16 @@ const STATE = {
   totalMsgs: 0,
 };
 
-// Master account credentials
-const MASTER = { username:'andre89', email:'vironsilvestre89@gmail.com', password:'210208619981006' };
+// Master account credentials (SHA-256 hashed — never store plaintext passwords in frontend code)
+const MASTER_HASHES = {
+  username: '897f021451f08e39c29ebfc070e6e96fbfd2f4523735a607e882731e0f64e316',
+  email:    '119621edc1ef1c4802e3881e2a0896ba1fd9c1f9e1a44ba2ffa918c64ee8ff31',
+  password: '08a74c8b46fb70ec14b2dbd6d27fda28d455416505344fb75774d5490d235105',
+};
+async function hashStr(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 
 // Local "db"
 let users = JSON.parse(localStorage.getItem('lingua_users') || '[]');
@@ -1717,12 +1725,23 @@ document.getElementById('theme-toggle').onclick = function(){
 function showModal(m){ document.getElementById('modal-'+m).classList.remove('hidden') }
 function closeModal(m){ document.getElementById('modal-'+m).classList.add('hidden') }
 
-function doLogin(){
+async function doLogin(){
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
-  // Master account check
-  if((email===MASTER.email || email===MASTER.username) && pass===MASTER.password){
-    loginSuccess({ name:'Andre', email:MASTER.email, plan:'master', coins:999999 }, true);
+  // Hash the inputs and compare against stored hashes — credentials never exposed
+  const [hEmail, hUser, hPass] = await Promise.all([
+    hashStr(email), hashStr(email), hashStr(pass)
+  ]);
+  const hInputUser = await hashStr(email); // also check if they typed username
+  const hInputEmail = await hashStr(email);
+  const emailHash = await hashStr(email);
+  const userHash  = await hashStr(email);
+  const passHash  = await hashStr(pass);
+  const isMasterEmail = emailHash === MASTER_HASHES.email;
+  const isMasterUser  = (await hashStr(email)) === MASTER_HASHES.username;
+  const isMasterPass  = passHash === MASTER_HASHES.password;
+  if((isMasterEmail || isMasterUser) && isMasterPass){
+    loginSuccess({ name:'Andre', email:'••••••••••••', plan:'master', coins:999999 }, true);
     return;
   }
   const found = users.find(u=>u.email===email && u.password===pass);
@@ -2466,7 +2485,7 @@ function loadAdminData(){
   document.getElementById('admin-msgs').textContent = STATE.totalMsgs;
   const ul = document.getElementById('admin-user-list');
   if(ul){
-    ul.innerHTML = [{ name:'Andre (Master)', email:MASTER.email, plan:'Master ∞' }, ...users].map(u=>`
+    ul.innerHTML = [{ name:'Andre (Master)', email:'[protected]', plan:'Master ∞' }, ...users].map(u=>`
       <div class="admin-stat"><span>${u.name} — ${u.email}</span><strong>${u.plan||'free'}</strong></div>
     `).join('');
   }
