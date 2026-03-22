@@ -844,6 +844,7 @@ canvas.chart{width:100%!important;max-height:200px}
   .chat-layout{grid-template-columns:1fr}
   .ai-video-panel{display:none}
   .word-list-grid{grid-template-columns:1fr}
+  #hamburger-btn{display:flex!important}
 }
 @media(max-width:900px){
   .dash-layout{grid-template-columns:1fr}
@@ -851,6 +852,7 @@ canvas.chart{width:100%!important;max-height:200px}
   .chat-layout{grid-template-columns:1fr}
   .ai-video-panel{display:none}
   .word-list-grid{grid-template-columns:1fr}
+  #hamburger-btn{display:flex!important}
 }
 @media(max-width:600px){
   /* Fix gradient text on mobile — must have display:inline-block */
@@ -876,29 +878,34 @@ canvas.chart{width:100%!important;max-height:200px}
   .stats-row{grid-template-columns:1fr 1fr}
 }
 
-/* ============================================================
-   MOBILE BOTTOM NAV
-   ============================================================ */
-#mobile-nav{
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;z-index:900;
-  background:var(--card);border-top:1px solid var(--border);
-  padding:6px 0 env(safe-area-inset-bottom,6px);
+/* Mobile sidebar drawer */
+#mobile-drawer{
+  display:none;position:fixed;inset:0;z-index:1500;
 }
-.mobile-nav-items{
-  display:flex;justify-content:space-around;align-items:center;
+#mobile-drawer-overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(4px);
 }
+#mobile-drawer-panel{
+  position:absolute;left:0;top:0;bottom:0;width:280px;
+  background:var(--card);border-right:1px solid var(--border);
+  padding:80px 16px 32px;overflow-y:auto;
+  transform:translateX(-100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+#mobile-drawer.open #mobile-drawer-panel{transform:translateX(0)}
+#mobile-drawer.open{display:block}
 .mob-nav-item{
-  display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:6px 8px;border-radius:10px;cursor:pointer;
-  font-size:10px;color:var(--text3);transition:var(--transition);
-  min-width:48px;
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;border-radius:10px;cursor:pointer;
+  font-size:14px;font-weight:500;color:var(--text2);
+  transition:var(--transition);margin-bottom:2px;
 }
-.mob-nav-item .mn-icon{font-size:20px}
-.mob-nav-item.active,.mob-nav-item:hover{color:var(--accent)}
+.mob-nav-item .mn-icon{font-size:18px;width:24px;text-align:center}
+.mob-nav-item.active,.mob-nav-item:hover{
+  background:rgba(108,99,255,0.15);color:var(--accent);
+}
 @media(max-width:900px){
-  #mobile-nav{display:block}
-  .dash-main{padding:16px 12px 80px}
+  .dash-main{padding:16px 12px 32px}
   #page-dashboard .dash-layout{grid-template-columns:1fr}
 }
 
@@ -920,7 +927,8 @@ canvas.chart{width:100%!important;max-height:200px}
      ============================================================ -->
 <nav id="topbar">
   <div class="logo">🌐 LinguaAI</div>
-  <div class="topbar-right">
+  <button id="hamburger-btn" onclick="openMobileDrawer()" style="display:none;width:36px;height:36px;border-radius:8px;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:18px;align-items:center;justify-content:center;cursor:pointer" title="Menu">☰</button>
+    <div class="topbar-right">
     <button id="theme-toggle" title="Toggle theme">🌙</button>
     <div id="topbar-auth">
       <button class="btn btn-ghost btn-sm" onclick="showModal('login')">Log In</button>
@@ -1776,30 +1784,6 @@ canvas.chart{width:100%!important;max-height:200px}
   </div>
 </div>
 
-<!-- MOBILE BOTTOM NAV -->
-<div id="mobile-nav">
-  <div class="mobile-nav-items">
-    <div class="mob-nav-item active" id="mnav-home" onclick="showPanel('home');setMobNav('home')">
-      <div class="mn-icon">🏠</div><div>Home</div>
-    </div>
-    <div class="mob-nav-item" id="mnav-chat" onclick="showPanel('chat');setMobNav('chat')">
-      <div class="mn-icon">💬</div><div>Tutor</div>
-    </div>
-    <div class="mob-nav-item" id="mnav-stats" onclick="showPanel('stats');setMobNav('stats')">
-      <div class="mn-icon">📊</div><div>Stats</div>
-    </div>
-    <div class="mob-nav-item" id="mnav-quran" onclick="showPanel('quran');setMobNav('quran')">
-      <div class="mn-icon">🕌</div><div>Quran</div>
-    </div>
-    <div class="mob-nav-item" id="mnav-more" onclick="toggleMobileMore()">
-      <div class="mn-icon">⋯</div><div>More</div>
-    </div>
-  </div>
-</div>
-<!-- MOBILE MORE MENU -->
-<div id="mobile-more-menu" style="display:none;position:fixed;bottom:65px;left:0;right:0;z-index:901;background:var(--card);border-top:1px solid var(--border);padding:16px;display:none">
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-    <div class="mob-nav-item" onclick="showPanel('words');setMobNav('words');closeMobileMore()"><div class="mn-icon">📖</div><div>Words</div></div>
     <div class="mob-nav-item" onclick="showPanel('plan');setMobNav('plan');closeMobileMore()"><div class="mn-icon">🗺️</div><div>Plan</div></div>
     <div class="mob-nav-item" onclick="showPanel('shop');setMobNav('shop');closeMobileMore()"><div class="mn-icon">🛍️</div><div>Shop</div></div>
     <div class="mob-nav-item" onclick="showPanel('room');setMobNav('room');closeMobileMore()"><div class="mn-icon">🛋️</div><div>Room</div></div>
@@ -1809,6 +1793,33 @@ canvas.chart{width:100%!important;max-height:200px}
     <div id="mnav-admin-more" class="mob-nav-item hidden" onclick="showPanel('admin');setMobNav('admin');closeMobileMore()"><div class="mn-icon">⚙️</div><div>Admin</div></div>
   </div>
 </div>
+
+<!-- MOBILE SIDEBAR DRAWER -->
+<div id="mobile-drawer" onclick="closeMobileDrawer(event)">
+  <div id="mobile-drawer-overlay"></div>
+  <div id="mobile-drawer-panel">
+    <div style="font-family:var(--font-head);font-weight:800;font-size:18px;color:var(--accent);margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      🌐 LinguaAI Menu
+    </div>
+    <div class="mob-nav-item" onclick="showPanel('home');closeMobileDrawer()"><div class="mn-icon">🏠</div>Home</div>
+    <div class="mob-nav-item" onclick="showPanel('chat');closeMobileDrawer()"><div class="mn-icon">💬</div>AI Tutor Chat</div>
+    <div class="mob-nav-item" onclick="showPanel('stats');closeMobileDrawer()"><div class="mn-icon">📊</div>My Progress</div>
+    <div class="mob-nav-item" onclick="showPanel('words');closeMobileDrawer()"><div class="mn-icon">📖</div>Word Lists</div>
+    <div class="mob-nav-item" onclick="showPanel('plan');closeMobileDrawer()"><div class="mn-icon">🗺️</div>Learning Plan</div>
+    <div class="mob-nav-item" onclick="showPanel('quran');closeMobileDrawer()"><div class="mn-icon">🕌</div>Quran Mode</div>
+    <div class="mob-nav-item" onclick="showPanel('langs');closeMobileDrawer()"><div class="mn-icon">🌐</div>Languages</div>
+    <div class="mob-nav-item" onclick="showPanel('topics');closeMobileDrawer()"><div class="mn-icon">💭</div>My Topics</div>
+    <div class="mob-nav-item" onclick="showPanel('shop');closeMobileDrawer()"><div class="mn-icon">🛍️</div>Shop</div>
+    <div class="mob-nav-item" onclick="showPanel('room');closeMobileDrawer()"><div class="mn-icon">🛋️</div>AI Room</div>
+    <div class="mob-nav-item" onclick="showPanel('voices');closeMobileDrawer()"><div class="mn-icon">🎵</div>Premium Voices</div>
+    <div id="mob-admin-link" class="mob-nav-item hidden" onclick="showPanel('admin');closeMobileDrawer()" style="color:var(--accent2)"><div class="mn-icon">⚙️</div>Master Admin</div>
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      <div class="mob-nav-item" onclick="openPayment('coins',300);closeMobileDrawer()" style="color:var(--gold)"><div class="mn-icon">🪙</div>Buy Coins</div>
+      <div class="mob-nav-item" onclick="logout();closeMobileDrawer()" style="color:var(--accent2)"><div class="mn-icon">🚪</div>Log Out</div>
+    </div>
+  </div>
+</div>
+
 
 <!-- ============================================================
      AUTH MODALS
@@ -1935,7 +1946,15 @@ function navigate(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el = document.getElementById('page-'+page);
   if(el){ el.classList.add('active'); STATE.currentPage = page; }
-  if(page==='dashboard'){ setTimeout(initCharts,100); generateShop(); generateVoices(); updateSidebarCoins(); updatePlan(); renderWordLists(); }
+  if(page==='dashboard'){
+    setTimeout(initCharts,100);
+    generateShop(); generateVoices(); updateSidebarCoins(); updatePlan(); renderWordLists();
+    const mn = document.getElementById('mobile-nav');
+    if(mn) mn.style.display = 'block';
+  } else {
+    const mn = document.getElementById('mobile-nav');
+    if(mn) mn.style.display = 'none';
+  }
   if(page==='onboarding'){ renderOnboardingStep(0); }
 }
 
@@ -1950,6 +1969,11 @@ function showPanel(p){
   if(p==='chat' && document.getElementById('chat-window').children.length===0) startChat();
   if(p==='stats') setTimeout(initStatsCharts,100);
   if(p==='admin') loadAdminData();
+  if(p==='langs') renderLanguagePanel();
+  if(p==='topics') renderTopicsPanel();
+  // sync mobile nav
+  setMobNav(p);
+  closeMobileMore();
 }
 
 /* ============================================================
@@ -2022,6 +2046,8 @@ function loginSuccess(user, isMaster){
   if(isMaster){
     document.getElementById('nav-admin-link').classList.remove('hidden');
     document.getElementById('dropdown-admin').classList.remove('hidden');
+    const mal = document.getElementById('mob-admin-link');
+    if(mal) mal.classList.remove('hidden');
   }
   // Go to onboarding if new user
   if(!isMaster && (!user.langs || user.langs.length===0)){ navigate('onboarding'); }
@@ -2319,6 +2345,9 @@ function switchModel(m){
   document.getElementById('sel-alex').classList.toggle('selected', m==='alex');
   document.getElementById('ai-model-name').textContent = m==='luna' ? 'Luna 👩‍🏫' : 'Alex 👨‍🏫';
   document.getElementById('chat-lang-label').textContent = `Speaking ${STATE.lang} with ${m==='luna'?'Luna 👩‍🏫':'Alex 👨‍🏫'}`;
+  renderAvatar(m);
+  const am = document.getElementById('admin-model');
+  if(am) am.textContent = m==='luna' ? 'Luna 👩 (Female)' : 'Alex 👨 (Male)';
 }
 
 /* ============================================================
@@ -3223,21 +3252,33 @@ function toggleAvatarDance(){
    ============================================================ */
 function setMobNav(panel){
   document.querySelectorAll('.mob-nav-item').forEach(i=>i.classList.remove('active'));
-  const el = document.getElementById('mnav-'+panel);
-  if(el) el.classList.add('active');
 }
 
+function openMobileDrawer(){
+  const d = document.getElementById('mobile-drawer');
+  if(d){ d.style.display='block'; setTimeout(()=>d.classList.add('open'),10); }
+}
+
+function closeMobileDrawer(e){
+  if(e && e.target !== document.getElementById('mobile-drawer-overlay') && e.target !== document.getElementById('mobile-drawer')) return;
+  const d = document.getElementById('mobile-drawer');
+  if(d){ d.classList.remove('open'); setTimeout(()=>{ d.style.display='none'; },300); }
+}
+
+// Also close drawer when nav item clicked
+document.addEventListener('click', e=>{
+  const drawer = document.getElementById('mobile-drawer');
+  if(drawer && drawer.classList.contains('open')){
+    const panel = document.getElementById('mobile-drawer-panel');
+    if(panel && !panel.contains(e.target) && e.target !== document.getElementById('hamburger-btn')){
+      closeMobileDrawer();
+    }
+  }
+});
+
 let moreMenuOpen = false;
-function toggleMobileMore(){
-  moreMenuOpen = !moreMenuOpen;
-  const m = document.getElementById('mobile-more-menu');
-  if(m) m.style.display = moreMenuOpen ? 'block' : 'none';
-}
-function closeMobileMore(){
-  moreMenuOpen = false;
-  const m = document.getElementById('mobile-more-menu');
-  if(m) m.style.display = 'none';
-}
+function toggleMobileMore(){ moreMenuOpen = !moreMenuOpen; }
+function closeMobileMore(){ moreMenuOpen = false; }
 
 /* ============================================================
    LANGUAGE MANAGEMENT
@@ -3369,48 +3410,11 @@ function saveTopics(){
 }
 
 /* ============================================================
-   OVERRIDE showPanel to init new panels
-   ============================================================ */
-const _origShowPanel = showPanel;
-function showPanel(p){
-  _origShowPanel(p);
-  if(p==='langs') renderLanguagePanel();
-  if(p==='topics') renderTopicsPanel();
-}
-
-/* ============================================================
-   OVERRIDE navigate to show mobile nav only on dashboard
-   ============================================================ */
-const _origNavigate = navigate;
-function navigate(page){
-  _origNavigate(page);
-  const mn = document.getElementById('mobile-nav');
-  if(mn) mn.style.display = page==='dashboard' ? 'block' : 'none';
-}
-
-/* ============================================================
-   OVERRIDE loginSuccess to show mobile nav admin
-   ============================================================ */
-const _origLoginSuccess_mobile = loginSuccess;
-
-/* ============================================================
    INIT AVATAR on page load
    ============================================================ */
 document.addEventListener('DOMContentLoaded', ()=>{
   renderAvatar('luna');
 });
-
-/* ============================================================
-   OVERRIDE switchModel to redraw avatar
-   ============================================================ */
-const _origSwitchModel = switchModel;
-function switchModel(m){
-  _origSwitchModel(m);
-  renderAvatar(m);
-  // Also update admin if open
-  const am = document.getElementById('admin-model');
-  if(am) am.textContent = m==='luna' ? 'Luna 👩 (Female)' : 'Alex 👨 (Male)';
-}
 
 /* ============================================================
    FIX: Reset stats to zero on fresh login
