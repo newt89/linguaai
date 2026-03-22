@@ -151,6 +151,7 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
   letter-spacing:-0.03em;
   display:inline-block;
 }
+
 .topbar-right{display:flex;align-items:center;gap:12px}
 #theme-toggle{
   width:36px;height:36px;border-radius:50%;
@@ -570,6 +571,8 @@ canvas.chart{width:100%!important;max-height:200px}
 }
 @keyframes aura-pulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.2);opacity:1}}
 @keyframes ai-bob{from{transform:translateY(0) rotate(-1deg)}to{transform:translateY(-6px) rotate(1deg)}}
+@keyframes ai-idle-bob{0%,100%{transform:translateY(0) rotate(-0.5deg)}50%{transform:translateY(-8px) rotate(0.5deg)}}
+@keyframes ai-dance{0%{transform:translateY(0) rotate(-8deg) scale(1.05)}100%{transform:translateY(-12px) rotate(8deg) scale(1.08)}}
 @keyframes eye-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
 /* AI eyes blink animation */
 @keyframes eye-blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
@@ -872,6 +875,33 @@ canvas.chart{width:100%!important;max-height:200px}
   #topbar{padding:0 12px}
   .stats-row{grid-template-columns:1fr 1fr}
 }
+
+/* ============================================================
+   MOBILE BOTTOM NAV
+   ============================================================ */
+#mobile-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;z-index:900;
+  background:var(--card);border-top:1px solid var(--border);
+  padding:6px 0 env(safe-area-inset-bottom,6px);
+}
+.mobile-nav-items{
+  display:flex;justify-content:space-around;align-items:center;
+}
+.mob-nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 8px;border-radius:10px;cursor:pointer;
+  font-size:10px;color:var(--text3);transition:var(--transition);
+  min-width:48px;
+}
+.mob-nav-item .mn-icon{font-size:20px}
+.mob-nav-item.active,.mob-nav-item:hover{color:var(--accent)}
+@media(max-width:900px){
+  #mobile-nav{display:block}
+  .dash-main{padding:16px 12px 80px}
+  #page-dashboard .dash-layout{grid-template-columns:1fr}
+}
+
 /* ============================================================
    PROGRESS RING
    ============================================================ */
@@ -1248,6 +1278,12 @@ canvas.chart{width:100%!important;max-height:200px}
       <div class="nav-item" onclick="showPanel('voices')" id="nav-voices">
         <span class="icon">🎵</span> Premium Voices
       </div>
+      <div class="nav-item" onclick="showPanel('langs')" id="nav-langs">
+        <span class="icon">🌐</span> Languages
+      </div>
+      <div class="nav-item" onclick="showPanel('topics')" id="nav-topics">
+        <span class="icon">💭</span> My Topics
+      </div>
       <div id="nav-admin-link" class="nav-item hidden" onclick="showPanel('admin')" id="nav-admin">
         <span class="icon">⚙️</span> Master Admin
       </div>
@@ -1336,34 +1372,11 @@ canvas.chart{width:100%!important;max-height:200px}
 
           <!-- AI Video Panel -->
           <div class="ai-video-panel">
-            <div class="ai-avatar-wrap">
+            <div class="ai-avatar-wrap" style="cursor:pointer" onclick="toggleAvatarDance()">
               <div class="ai-aura"></div>
-              <svg class="ai-avatar-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" id="ai-svg">
-                <!-- Body -->
-                <ellipse cx="100" cy="170" rx="55" ry="35" fill="#1a1a3e" opacity="0.7"/>
-                <!-- Torso -->
-                <rect x="65" y="110" width="70" height="60" rx="20" fill="#2d2d5e"/>
-                <!-- Glow collar -->
-                <ellipse cx="100" cy="112" rx="25" ry="8" fill="#6c63ff" opacity="0.6"/>
-                <!-- Head -->
-                <circle cx="100" cy="80" r="42" fill="#252540"/>
-                <circle cx="100" cy="80" r="38" fill="#1e1e38"/>
-                <!-- Eyes -->
-                <circle cx="84" cy="76" r="8" fill="#6c63ff" opacity="0.9" id="eye-l"/>
-                <circle cx="116" cy="76" r="8" fill="#6c63ff" opacity="0.9" id="eye-r"/>
-                <circle cx="86" cy="74" r="3" fill="#fff" opacity="0.6"/>
-                <circle cx="118" cy="74" r="3" fill="#fff" opacity="0.6"/>
-                <!-- Mouth -->
-                <path d="M88 95 Q100 104 112 95" stroke="#6c63ff" stroke-width="2.5" fill="none" stroke-linecap="round" id="mouth"/>
-                <!-- Ears / side glow -->
-                <circle cx="58" cy="80" r="6" fill="#6c63ff" opacity="0.3"/>
-                <circle cx="142" cy="80" r="6" fill="#6c63ff" opacity="0.3"/>
-                <!-- Antenna -->
-                <line x1="100" y1="38" x2="100" y2="55" stroke="#6c63ff" stroke-width="2"/>
-                <circle cx="100" cy="34" r="6" fill="#ff6584">
-                  <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
-                </circle>
-              </svg>
+              <div id="ai-avatar-container" style="width:82%;height:82%;position:relative;z-index:1;display:flex;align-items:center;justify-content:center">
+                <!-- Avatar injected by JS based on gender -->
+              </div>
             </div>
             <div class="speaking-rings" id="speaking-rings">
               <div class="ring"></div><div class="ring"></div><div class="ring"></div>
@@ -1614,6 +1627,83 @@ canvas.chart{width:100%!important;max-height:200px}
         </div>
       </div>
 
+
+      <!-- LANGUAGES PANEL -->
+      <div class="dash-panel" id="panel-langs">
+        <div class="dash-header">
+          <h1>🌐 My Languages</h1>
+          <p>Manage your active languages and unlock more</p>
+        </div>
+        <div id="lang-tabs-container" style="margin-bottom:24px">
+          <!-- Language tabs generated by JS -->
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px">
+          <h3 style="font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:16px">➕ Add a Language</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">First language is free. Additional languages cost 🪙 coins per month.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px" id="add-lang-grid">
+            <!-- Generated by JS -->
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+          <h3 style="font-family:var(--font-head);font-size:17px;font-weight:700;margin-bottom:8px">💰 Language Pricing</h3>
+          <div style="font-size:13px;color:var(--text2);line-height:2">
+            <div>✅ 1 Language — <strong style="color:var(--accent3)">FREE</strong></div>
+            <div>🌐 2 Languages — <strong style="color:var(--gold)">🪙 50/month</strong></div>
+            <div>🌍 3 Languages — <strong style="color:var(--gold)">🪙 100/month</strong></div>
+            <div>🌎 4+ Languages — <strong style="color:var(--gold)">🪙 150/month</strong></div>
+            <div>♾️ All 7 Languages (Pro Plan) — <strong style="color:var(--accent)">Unlimited</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOPICS PANEL -->
+      <div class="dash-panel" id="panel-topics">
+        <div class="dash-header">
+          <h1>💭 My Topics & Goals</h1>
+          <p>Everything the AI knows about you — edit anytime</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+            <h3 style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:14px">🎯 Interests</h3>
+            <div id="my-interests-list" class="chip-grid"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+            <h3 style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:14px">📌 Use Cases</h3>
+            <div id="my-topics-list" class="chip-grid"></div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+            <h3 style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:14px">🏆 Language Goal</h3>
+            <select id="my-lang-goal" style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;margin-bottom:12px">
+              <option>Reach basic survival level (A1-A2)</option>
+              <option>Hold everyday conversations (B1)</option>
+              <option>Become conversationally fluent (B2)</option>
+              <option>Reach near-native fluency (C1)</option>
+              <option>Achieve full mastery (C2)</option>
+              <option>Memorize the Quran (Arabic)</option>
+            </select>
+            <select id="my-timeline" style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit">
+              <option>3 months</option>
+              <option>6 months</option>
+              <option>1 year</option>
+              <option>2 years</option>
+              <option>No rush</option>
+            </select>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+            <h3 style="font-family:var(--font-head);font-weight:700;font-size:16px;margin-bottom:14px">🌟 Life Goal</h3>
+            <textarea id="my-life-goal" rows="3" placeholder="e.g. Move to Japan, connect with family, study abroad..." style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;resize:vertical;font-size:14px"></textarea>
+            <div style="margin-top:12px">
+              <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:6px">Conversation topics I enjoy:</label>
+              <textarea id="my-conv-topics" rows="3" placeholder="e.g. football, cooking, travel stories, my country, family..." style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;resize:vertical;font-size:14px"></textarea>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:12px">
+          <button class="btn btn-primary" onclick="saveTopics()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="notify('AI will use your updated topics in the next chat session','info')">ℹ️ How it works</button>
+        </div>
+      </div>
+
       <!-- ADMIN panel -->
       <div class="dash-panel" id="panel-admin">
         <div class="dash-header">
@@ -1683,6 +1773,40 @@ canvas.chart{width:100%!important;max-height:200px}
         </div>
       </div>
     </main>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<div id="mobile-nav">
+  <div class="mobile-nav-items">
+    <div class="mob-nav-item active" id="mnav-home" onclick="showPanel('home');setMobNav('home')">
+      <div class="mn-icon">🏠</div><div>Home</div>
+    </div>
+    <div class="mob-nav-item" id="mnav-chat" onclick="showPanel('chat');setMobNav('chat')">
+      <div class="mn-icon">💬</div><div>Tutor</div>
+    </div>
+    <div class="mob-nav-item" id="mnav-stats" onclick="showPanel('stats');setMobNav('stats')">
+      <div class="mn-icon">📊</div><div>Stats</div>
+    </div>
+    <div class="mob-nav-item" id="mnav-quran" onclick="showPanel('quran');setMobNav('quran')">
+      <div class="mn-icon">🕌</div><div>Quran</div>
+    </div>
+    <div class="mob-nav-item" id="mnav-more" onclick="toggleMobileMore()">
+      <div class="mn-icon">⋯</div><div>More</div>
+    </div>
+  </div>
+</div>
+<!-- MOBILE MORE MENU -->
+<div id="mobile-more-menu" style="display:none;position:fixed;bottom:65px;left:0;right:0;z-index:901;background:var(--card);border-top:1px solid var(--border);padding:16px;display:none">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div class="mob-nav-item" onclick="showPanel('words');setMobNav('words');closeMobileMore()"><div class="mn-icon">📖</div><div>Words</div></div>
+    <div class="mob-nav-item" onclick="showPanel('plan');setMobNav('plan');closeMobileMore()"><div class="mn-icon">🗺️</div><div>Plan</div></div>
+    <div class="mob-nav-item" onclick="showPanel('shop');setMobNav('shop');closeMobileMore()"><div class="mn-icon">🛍️</div><div>Shop</div></div>
+    <div class="mob-nav-item" onclick="showPanel('room');setMobNav('room');closeMobileMore()"><div class="mn-icon">🛋️</div><div>Room</div></div>
+    <div class="mob-nav-item" onclick="showPanel('voices');setMobNav('voices');closeMobileMore()"><div class="mn-icon">🎵</div><div>Voices</div></div>
+    <div class="mob-nav-item" onclick="showPanel('langs');setMobNav('langs');closeMobileMore()"><div class="mn-icon">🌐</div><div>Languages</div></div>
+    <div class="mob-nav-item" onclick="showPanel('topics');setMobNav('topics');closeMobileMore()"><div class="mn-icon">💭</div><div>Topics</div></div>
+    <div id="mnav-admin-more" class="mob-nav-item hidden" onclick="showPanel('admin');setMobNav('admin');closeMobileMore()"><div class="mn-icon">⚙️</div><div>Admin</div></div>
   </div>
 </div>
 
@@ -2041,53 +2165,108 @@ function sendMessage(){
   setTimeout(()=>generateAIResponse(text), 800+Math.random()*600);
 }
 
-// Simple ML-improving response engine (local simulation)
-const AI_MEMORY = { learnedWords:[], topicHistory:[], userPatterns:[] };
+// ML-improving conversational AI engine
+const AI_MEMORY = {
+  learnedWords:[], topicHistory:[], userPatterns:[],
+  conversationTurn: 0, lastTopic: '', askedQuestion: false
+};
+
+function buildAIPersonality(){
+  const name = STATE.model==='luna' ? 'Luna' : 'Alex';
+  const interests = (STATE.onboarding.interests||[]).map(i=>i.replace(/^[^\w]*/,'')).join(', ') || 'general topics';
+  const topics = (STATE.onboarding.topics||[]).map(t=>t.replace(/^[^\w]*/,'')).join(', ') || 'daily life';
+  const goal = STATE.onboarding.langGoal || 'conversational fluency';
+  const lifeGoal = STATE.onboarding.lifeGoal || '';
+  const convTopics = STATE.onboarding.convTopics || '';
+  const lang = STATE.lang || 'Spanish';
+  const timeline = STATE.onboarding.timeline || '6 months';
+  return { name, interests, topics, goal, lifeGoal, convTopics, lang, timeline };
+}
 
 function generateAIResponse(userText){
   const lang = STATE.lang || 'Spanish';
   const data = LANG_AI[lang] || LANG_AI['Spanish'];
-  const interests = STATE.onboarding.interests || [];
-  const topics = STATE.onboarding.topics || [];
-  
-  // Track pattern
+  const p = buildAIPersonality();
   AI_MEMORY.userPatterns.push(userText.toLowerCase());
-  
-  // Pick next word to teach (slowly, 1-2 per message)
+  AI_MEMORY.conversationTurn++;
+
+  // Pick next word to teach slowly (every 2-3 messages)
   if(!lessonWordIndex[lang]) lessonWordIndex[lang] = 0;
   const wordPool = data.words;
   const nextWords = [];
-  const idx = lessonWordIndex[lang];
-  if(idx < wordPool.length){
-    nextWords.push(wordPool[idx]);
+  const shouldTeachWord = AI_MEMORY.conversationTurn % 2 === 0;
+  if(shouldTeachWord && lessonWordIndex[lang] < wordPool.length){
+    nextWords.push(wordPool[lessonWordIndex[lang]]);
     lessonWordIndex[lang]++;
-    addNewWord(wordPool[idx][0], wordPool[idx][1]);
+    addNewWord(wordPool[lessonWordIndex[lang]-1][0], wordPool[lessonWordIndex[lang]-1][1]);
     STATE.stats.learned++;
-    document.getElementById('stat-learned').textContent = STATE.stats.learned;
-    document.getElementById('s-learned').textContent = STATE.stats.learned;
-    document.getElementById('s-fluency').textContent = Math.min(100,STATE.stats.learned*2)+'%';
+    const sl = document.getElementById('stat-learned'); if(sl) sl.textContent = STATE.stats.learned;
+    const sl2 = document.getElementById('s-learned'); if(sl2) sl2.textContent = STATE.stats.learned;
+    const sf = document.getElementById('s-fluency'); if(sf) sf.textContent = Math.min(100,STATE.stats.learned*2)+'%';
   }
 
-  // Build contextual response
-  let topic = 'general conversation';
-  if(interests.length) topic = interests[Math.floor(Math.random()*interests.length)].replace(/^[^\w]*/,'');
-  if(topics.length) topic = topics[Math.floor(Math.random()*topics.length)].replace(/^[^\w]*/,'');
+  // Pick a topic to talk about from user's profile
+  const allTopics = [
+    ...(STATE.onboarding.interests||[]),
+    ...(STATE.onboarding.topics||[]),
+    ...(STATE.onboarding.convTopics||'').split(',').filter(Boolean)
+  ].map(t=>t.replace(/^[^\w]*/,'').trim()).filter(Boolean);
 
-  const responses = [
-    `Great! Let's continue our ${topic} conversation. In ${lang}, we say: ${nextWords.map(([w,t])=>`"${w}" (${t})`).join(', ')}. Try using it in a sentence!`,
-    `I noticed you're getting comfortable! Here's a new ${lang} word: ${nextWords.map(([w,t])=>`"${w}" which means "${t}"`).join(' and ')}. How does that relate to ${topic}?`,
-    `Excellent effort! The AI has noticed your pattern and is adapting. New vocabulary: ${nextWords.map(([w,t])=>`${w} = ${t}`).join(', ')}. Practice makes perfect!`,
-    `Based on your interest in ${topic}, let's learn: ${nextWords.map(([w,t])=>`"${w}" (${t})`).join(' and ')} — very useful in this context!`,
+  const topic = allTopics.length
+    ? allTopics[AI_MEMORY.conversationTurn % allTopics.length]
+    : 'your daily life';
+
+  // Detect what the user said for context
+  const lowerText = userText.toLowerCase();
+  const isQuestion = lowerText.includes('?');
+  const isShort = userText.split(' ').length < 4;
+  const mentionsTopic = allTopics.some(t => lowerText.includes(t.toLowerCase().split(' ')[0]));
+
+  // Build natural conversational responses with personality
+  let response = '';
+  const turn = AI_MEMORY.conversationTurn;
+  const wordPart = nextWords.length
+    ? ` By the way, here's a new ${lang} word for you — "${nextWords[0][0]}" means "${nextWords[0][1]}". Try using it!`
+    : '';
+
+  // Questions the AI asks to keep conversation going
+  const followUpQuestions = [
+    `What do you enjoy most about ${topic}? Tell me in English and I'll help you say it in ${lang}!`,
+    `That's interesting! Have you ever experienced something related to ${topic} in a ${lang}-speaking country?`,
+    `How do you feel about ${topic}? Do you have a personal story you'd like to share?`,
+    `In your goal to ${p.goal}, how does ${topic} connect to your life? I'd love to know more!`,
+    `Tell me more! What specifically about ${topic} interests you the most?`,
+    `${p.lifeGoal ? 'You mentioned wanting to ' + p.lifeGoal + '. How does ' + topic + ' fit into that plan?' : 'What motivates you to learn ' + lang + ' right now?'}`,
+    `If you could have a full conversation in ${lang} right now, what would you talk about with a native speaker?`,
+    `Have you tried any ${lang} media — music, movies, or shows? What did you think?`,
+    `What's the hardest part of learning ${lang} for you so far? I want to help you overcome it!`,
+    `Imagine you're in a ${lang}-speaking country. What's the first thing you'd want to say?`,
   ];
-  
-  const response = responses[Math.floor(Math.random()*responses.length)];
+
+  const question = followUpQuestions[turn % followUpQuestions.length];
+
+  if(turn === 1){
+    response = `Wonderful to meet you! I see you're interested in ${topic} — that's a great starting point for our ${lang} lessons. ${wordPart} Now, ${question}`;
+  } else if(isQuestion){
+    response = `Great question! In ${lang} we'd express that very naturally. ${wordPart} I'm curious — ${question}`;
+  } else if(isShort){
+    response = `I hear you! Let's dig deeper. ${wordPart} ${question}`;
+  } else if(mentionsTopic){
+    response = `I love that you brought up ${topic}! That's exactly what we should be connecting to your ${lang} learning. ${wordPart} ${question}`;
+  } else if(turn % 3 === 0){
+    response = `You're making real progress — I can see your ${lang} is improving. ${wordPart} Let me ask you something personal: ${question}`;
+  } else {
+    response = `Interesting! I'm learning more about you with every message. ${wordPart} Here's what I'd like to explore with you: ${question}`;
+  }
+
+  AI_MEMORY.lastTopic = topic;
   addMessage('ai', response, nextWords);
   setSpeaking(true);
-  setTimeout(()=>setSpeaking(false), 3000);
-  
-  // Update recognized count
+  const speakDuration = Math.min(8000, response.length * 40);
+  setTimeout(()=>setSpeaking(false), speakDuration);
+
   STATE.stats.recognized += 1;
-  document.getElementById('stat-recognized').textContent = STATE.stats.recognized;
+  const sr = document.getElementById('stat-recognized'); if(sr) sr.textContent = STATE.stats.recognized;
 }
 
 function addNewWord(word, translation){
@@ -2938,6 +3117,317 @@ document.querySelectorAll('.lang-pill').forEach((p,i)=>{
   p.style.opacity='0';
   setTimeout(()=>{ p.style.opacity=''; p.style.animation=''; }, 600+i*100);
 });
+
+/* ============================================================
+   AVATAR RENDERING - Male / Female animated SVG
+   ============================================================ */
+function renderAvatar(gender){
+  const container = document.getElementById('ai-avatar-container');
+  if(!container) return;
+  const isFemale = gender === 'luna';
+  const hairColor = isFemale ? '#ff6584' : '#6c63ff';
+  const bodyColor = isFemale ? '#ff6584' : '#6c63ff';
+  const skinTone = isFemale ? '#ffb8c6' : '#b8c6ff';
+
+  container.innerHTML = `
+    <svg id="ai-svg" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg"
+      style="width:100%;height:100%;animation:ai-idle-bob 3s ease-in-out infinite">
+      <!-- Shadow -->
+      <ellipse cx="100" cy="210" rx="45" ry="12" fill="${bodyColor}" opacity="0.15"/>
+      <!-- Body -->
+      <rect x="62" y="128" width="76" height="72" rx="22"
+        fill="${isFemale ? '#3d1a2e' : '#1a1a3e'}"/>
+      <!-- Shirt detail -->
+      <rect x="78" y="128" width="44" height="20" rx="10"
+        fill="${bodyColor}" opacity="0.4"/>
+      <!-- Collar glow -->
+      <ellipse cx="100" cy="130" rx="26" ry="9" fill="${bodyColor}" opacity="0.5"/>
+      ${isFemale ? `
+      <!-- Female hair (longer) -->
+      <ellipse cx="100" cy="72" rx="46" ry="48" fill="${hairColor}" opacity="0.9"/>
+      <rect x="54" y="72" width="18" height="42" rx="9" fill="${hairColor}"/>
+      <rect x="128" y="72" width="18" height="42" rx="9" fill="${hairColor}"/>
+      ` : `
+      <!-- Male hair (shorter/sides) -->
+      <ellipse cx="100" cy="68" rx="42" ry="30" fill="${hairColor}" opacity="0.8"/>
+      `}
+      <!-- Head -->
+      <circle cx="100" cy="82" r="40" fill="${isFemale ? '#2a1520' : '#151530'}"/>
+      <circle cx="100" cy="82" r="36" fill="${isFemale ? '#1e1028' : '#1a1a38'}"/>
+      <!-- Cheek glow -->
+      <circle cx="76" cy="92" r="10" fill="${bodyColor}" opacity="0.12"/>
+      <circle cx="124" cy="92" r="10" fill="${bodyColor}" opacity="0.12"/>
+      <!-- Eyes -->
+      <ellipse cx="85" cy="78" rx="9" ry="9" fill="${bodyColor}" opacity="0.95" id="eye-l"/>
+      <ellipse cx="115" cy="78" rx="9" ry="9" fill="${bodyColor}" opacity="0.95" id="eye-r"/>
+      <!-- Eye shine -->
+      <circle cx="88" cy="75" r="3.5" fill="#fff" opacity="0.7"/>
+      <circle cx="118" cy="75" r="3.5" fill="#fff" opacity="0.7"/>
+      <!-- Pupil -->
+      <circle cx="85" cy="79" r="4" fill="#0a0a1a" opacity="0.6"/>
+      <circle cx="115" cy="79" r="4" fill="#0a0a1a" opacity="0.6"/>
+      ${isFemale ? `
+      <!-- Female lashes -->
+      <line x1="78" y1="70" x2="75" y2="66" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      <line x1="85" y1="69" x2="85" y2="65" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      <line x1="92" y1="70" x2="95" y2="66" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      <line x1="108" y1="70" x2="105" y2="66" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      <line x1="115" y1="69" x2="115" y2="65" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      <line x1="122" y1="70" x2="125" y2="66" stroke="${hairColor}" stroke-width="2" stroke-linecap="round"/>
+      ` : `
+      <!-- Male brow -->
+      <path d="M77 70 Q85 67 93 70" stroke="${hairColor}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <path d="M107 70 Q115 67 123 70" stroke="${hairColor}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      `}
+      <!-- Nose -->
+      <ellipse cx="100" cy="90" rx="4" ry="3" fill="${bodyColor}" opacity="0.3"/>
+      <!-- Mouth -->
+      <path d="M88 100 Q100 109 112 100" stroke="${bodyColor}" stroke-width="2.5"
+        fill="none" stroke-linecap="round" id="mouth"/>
+      <!-- Ear glow -->
+      <circle cx="60" cy="82" r="7" fill="${bodyColor}" opacity="0.25"/>
+      <circle cx="140" cy="82" r="7" fill="${bodyColor}" opacity="0.25"/>
+      <!-- Antenna -->
+      <line x1="100" y1="42" x2="100" y2="58" stroke="${bodyColor}" stroke-width="2.5"/>
+      <circle cx="100" cy="37" r="7" fill="${isFemale ? '#ff6584' : '#ff6584'}">
+        <animate attributeName="opacity" values="1;0.2;1" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="r" values="7;9;7" dur="1.8s" repeatCount="indefinite"/>
+      </circle>
+      <!-- Arms animated -->
+      <line x1="62" y1="145" x2="38" y2="165" stroke="${bodyColor}" stroke-width="10"
+        stroke-linecap="round" id="arm-l">
+        <animateTransform attributeName="transform" type="rotate"
+          values="0 62 145;-15 62 145;0 62 145" dur="2s" repeatCount="indefinite"/>
+      </line>
+      <line x1="138" y1="145" x2="162" y2="165" stroke="${bodyColor}" stroke-width="10"
+        stroke-linecap="round" id="arm-r">
+        <animateTransform attributeName="transform" type="rotate"
+          values="0 138 145;15 138 145;0 138 145" dur="2s" begin="1s" repeatCount="indefinite"/>
+      </line>
+    </svg>`;
+}
+
+let isDancing = false;
+function toggleAvatarDance(){
+  const svg = document.getElementById('ai-svg');
+  if(!svg) return;
+  isDancing = !isDancing;
+  svg.style.animation = isDancing
+    ? 'ai-dance 0.4s ease infinite alternate'
+    : 'ai-idle-bob 3s ease-in-out infinite';
+  if(isDancing) setTimeout(()=>{ isDancing=false; if(svg) svg.style.animation='ai-idle-bob 3s ease-in-out infinite'; }, 3000);
+}
+
+/* ============================================================
+   MOBILE NAV
+   ============================================================ */
+function setMobNav(panel){
+  document.querySelectorAll('.mob-nav-item').forEach(i=>i.classList.remove('active'));
+  const el = document.getElementById('mnav-'+panel);
+  if(el) el.classList.add('active');
+}
+
+let moreMenuOpen = false;
+function toggleMobileMore(){
+  moreMenuOpen = !moreMenuOpen;
+  const m = document.getElementById('mobile-more-menu');
+  if(m) m.style.display = moreMenuOpen ? 'block' : 'none';
+}
+function closeMobileMore(){
+  moreMenuOpen = false;
+  const m = document.getElementById('mobile-more-menu');
+  if(m) m.style.display = 'none';
+}
+
+/* ============================================================
+   LANGUAGE MANAGEMENT
+   ============================================================ */
+const ALL_LANGUAGES = [
+  {flag:'🇪🇸', name:'Spanish',  cost:0},
+  {flag:'🇸🇦', name:'Arabic',   cost:50},
+  {flag:'🇷🇺', name:'Russian',  cost:50},
+  {flag:'🕉️',  name:'Sanskrit', cost:50},
+  {flag:'🇩🇪', name:'German',   cost:50},
+  {flag:'🇯🇵', name:'Japanese', cost:50},
+  {flag:'🇰🇷', name:'Korean',   cost:50},
+];
+
+function renderLanguagePanel(){
+  // Active language tabs
+  const container = document.getElementById('lang-tabs-container');
+  if(!container) return;
+  const activeLangs = STATE.onboarding.langs || [STATE.lang || 'Spanish'];
+  container.innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      ${activeLangs.map(l=>{
+        const info = ALL_LANGUAGES.find(x=>l.includes(x.name)) || {flag:'🌐',name:l};
+        const isActive = STATE.lang === info.name;
+        return `<div onclick="switchActiveLang('${info.name}')"
+          style="padding:16px 24px;border-radius:var(--radius);background:var(--card);
+          border:2px solid ${isActive?'var(--accent)':'var(--border)'};
+          cursor:pointer;transition:var(--transition);text-align:center;min-width:120px">
+          <div style="font-size:28px">${info.flag}</div>
+          <div style="font-weight:700;font-size:14px;margin-top:6px">${info.name}</div>
+          <div style="font-size:11px;color:${isActive?'var(--accent)':'var(--text3)'};margin-top:4px">
+            ${isActive?'✅ Active':'Click to switch'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Add language grid
+  const grid = document.getElementById('add-lang-grid');
+  if(!grid) return;
+  grid.innerHTML = ALL_LANGUAGES.map(l=>{
+    const owned = (STATE.onboarding.langs||[]).some(x=>x.includes(l.name));
+    const isFree = l.cost === 0 || STATE.plan !== 'free';
+    const ownedClick = owned ? "notify('Already added!','info')" : "addLanguage('"+l.name+"')";
+    return `<div onclick="${ownedClick}"
+      style="padding:14px;border-radius:var(--radius-sm);background:var(--card2);
+      border:1px solid ${owned?'var(--accent3)':'var(--border)'};
+      cursor:pointer;text-align:center;transition:var(--transition)">
+      <div style="font-size:24px">${l.flag}</div>
+      <div style="font-weight:600;font-size:13px;margin-top:6px">${l.name}</div>
+      <div style="font-size:11px;color:${owned?'var(--accent3)':'var(--text3)'};margin-top:4px">
+        ${owned ? '✅ Added' : (l.cost===0 ? 'FREE' : `🪙 ${l.cost}/mo`)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addLanguage(name){
+  const activeLangs = STATE.onboarding.langs || [];
+  if(activeLangs.some(l=>l.includes(name))){ notify(`${name} already added!`,'info'); return; }
+  const cost = activeLangs.length === 0 ? 0 : activeLangs.length < 2 ? 50 : activeLangs.length < 3 ? 100 : 150;
+  if(STATE.plan==='free' && activeLangs.length >= 1){
+    notify(`Adding ${name} costs 🪙 ${cost}/month — upgrade or buy coins!`,'warning');
+    openPayment('coins',500); return;
+  }
+  STATE.onboarding.langs.push('🌐 '+name);
+  notify(`✅ ${name} added to your languages!`,'success');
+  renderLanguagePanel();
+}
+
+function switchActiveLang(name){
+  STATE.lang = name;
+  lessonWordIndex[name] = 0;
+  document.getElementById('chat-lang-label').textContent = `Speaking ${name} with ${STATE.model==='luna'?'Luna 👩':'Alex 👨'}`;
+  notify(`🌐 Switched to ${name}!`,'success');
+  renderLanguagePanel();
+  // Reset chat for new language
+  const win = document.getElementById('chat-window');
+  if(win) win.innerHTML = '';
+  startChat();
+}
+
+/* ============================================================
+   TOPICS PANEL
+   ============================================================ */
+function renderTopicsPanel(){
+  // Interests chips
+  const intEl = document.getElementById('my-interests-list');
+  if(intEl){
+    const allInts = ['⚽ Sports','🎵 Music','🍕 Food','✈️ Travel','📚 Literature','💼 Business','🎮 Gaming','🌿 Nature','🎨 Art','🔬 Science','🕌 Religion','👨‍👩‍👧 Family','💻 Tech','🎭 Movies','🏋️ Fitness','📰 News'];
+    intEl.innerHTML = allInts.map(i=>{
+      const sel = (STATE.onboarding.interests||[]).includes(i);
+      return `<div class="chip ${sel?'selected':''}" onclick="toggleProfileChip(this,'interests','${i}')">${i}</div>`;
+    }).join('');
+  }
+  // Topics chips
+  const topEl = document.getElementById('my-topics-list');
+  if(topEl){
+    const allTops = ['💬 Casual Chat','✈️ Travel','💼 Business','📖 Reading','📺 Media','🎓 Academic','🕌 Religious','❤️ Romance','🩺 Medical','⚖️ Law','🎵 Music','🎓 Heritage'];
+    topEl.innerHTML = allTops.map(t=>{
+      const sel = (STATE.onboarding.topics||[]).includes(t);
+      return `<div class="chip ${sel?'selected':''}" onclick="toggleProfileChip(this,'topics','${t}')">${t}</div>`;
+    }).join('');
+  }
+  // Fill goals
+  const lg = document.getElementById('my-lang-goal');
+  if(lg && STATE.onboarding.langGoal) lg.value = STATE.onboarding.langGoal;
+  const tl = document.getElementById('my-timeline');
+  if(tl && STATE.onboarding.timeline) tl.value = STATE.onboarding.timeline;
+  const llg = document.getElementById('my-life-goal');
+  if(llg) llg.value = STATE.onboarding.lifeGoal || '';
+  const ct = document.getElementById('my-conv-topics');
+  if(ct) ct.value = STATE.onboarding.convTopics || '';
+}
+
+function toggleProfileChip(el, field, val){
+  el.classList.toggle('selected');
+  const arr = STATE.onboarding[field] || (STATE.onboarding[field]=[]);
+  const idx = arr.indexOf(val);
+  if(idx===-1) arr.push(val); else arr.splice(idx,1);
+}
+
+function saveTopics(){
+  STATE.onboarding.langGoal = document.getElementById('my-lang-goal')?.value || '';
+  STATE.onboarding.timeline = document.getElementById('my-timeline')?.value || '';
+  STATE.onboarding.lifeGoal = document.getElementById('my-life-goal')?.value || '';
+  STATE.onboarding.convTopics = document.getElementById('my-conv-topics')?.value || '';
+  notify('✅ Profile saved! AI will use these in your next conversation.','success');
+}
+
+/* ============================================================
+   OVERRIDE showPanel to init new panels
+   ============================================================ */
+const _origShowPanel = showPanel;
+function showPanel(p){
+  _origShowPanel(p);
+  if(p==='langs') renderLanguagePanel();
+  if(p==='topics') renderTopicsPanel();
+}
+
+/* ============================================================
+   OVERRIDE navigate to show mobile nav only on dashboard
+   ============================================================ */
+const _origNavigate = navigate;
+function navigate(page){
+  _origNavigate(page);
+  const mn = document.getElementById('mobile-nav');
+  if(mn) mn.style.display = page==='dashboard' ? 'block' : 'none';
+}
+
+/* ============================================================
+   OVERRIDE loginSuccess to show mobile nav admin
+   ============================================================ */
+const _origLoginSuccess_mobile = loginSuccess;
+
+/* ============================================================
+   INIT AVATAR on page load
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderAvatar('luna');
+});
+
+/* ============================================================
+   OVERRIDE switchModel to redraw avatar
+   ============================================================ */
+const _origSwitchModel = switchModel;
+function switchModel(m){
+  _origSwitchModel(m);
+  renderAvatar(m);
+  // Also update admin if open
+  const am = document.getElementById('admin-model');
+  if(am) am.textContent = m==='luna' ? 'Luna 👩 (Female)' : 'Alex 👨 (Male)';
+}
+
+/* ============================================================
+   FIX: Reset stats to zero on fresh login
+   ============================================================ */
+function resetStats(){
+  STATE.stats = { learned:0, recognized:0, spoken:0, streak:1, sessions:1, minutes:0 };
+  ['stat-learned','stat-recognized','stat-spoken','stat-streak',
+   's-learned','s-fluency','s-sessions','s-minutes'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = id==='s-fluency' ? '0%' : '0';
+  });
+  STATE.wordsLearned=[]; STATE.wordsNew=[]; STATE.wordsReview=[]; STATE.wordsSpoken=[];
+  AI_MEMORY.conversationTurn = 0;
+  lessonWordIndex = {};
+  renderWordLists();
+}
+
 </script>
 </body>
 </html>
