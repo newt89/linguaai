@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LinguaAI — Learn Any Language with AI</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Self-contained font definitions - no Google Fonts needed */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+/* Fallback stack if Google Fonts unavailable */
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 /* ============================================================
    CSS VARIABLES & RESET
@@ -145,17 +150,8 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
   font-family:var(--font-head);font-weight:800;font-size:22px;
   letter-spacing:-0.03em;
   display:inline-block;
-  position:relative;
-  color:var(--accent);/* fallback for browsers that don't support gradient text */
+  color:var(--accent);
 }
-@supports(-webkit-background-clip:text) or (background-clip:text){
-  .logo{
-    background:linear-gradient(90deg,var(--accent),var(--accent2));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    color:transparent;
-  }
 }
 
 .topbar-right{display:flex;align-items:center;gap:12px}
@@ -218,16 +214,8 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
 }
 .hero h1 span{
   display:inline-block;
-  color:var(--accent);/* solid fallback */
+  color:var(--accent2);
 }
-@supports(-webkit-background-clip:text) or (background-clip:text){
-  .hero h1 span{
-    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    color:transparent;
-  }
 }
 .hero p{
   font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 36px;
@@ -926,7 +914,17 @@ canvas.chart{width:100%!important;max-height:200px}
      TOPBAR
      ============================================================ -->
 <nav id="topbar">
-  <div class="logo">🌐 LinguaAI</div>
+  <div class="logo">
+    <svg viewBox="0 0 160 32" height="32" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      <defs>
+        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#6c63ff"/>
+          <stop offset="100%" style="stop-color:#ff6584"/>
+        </linearGradient>
+      </defs>
+      <text x="0" y="26" font-family="Syne,system-ui,sans-serif" font-weight="800" font-size="24" fill="url(#logoGrad)" letter-spacing="-1">🌐 LinguaAI</text>
+    </svg>
+  </div>
   <button id="hamburger-btn" onclick="openMobileDrawer()" style="display:none;width:36px;height:36px;border-radius:8px;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:18px;align-items:center;justify-content:center;cursor:pointer" title="Menu">☰</button>
     <div class="topbar-right">
     <button id="theme-toggle" title="Toggle theme">🌙</button>
@@ -973,7 +971,18 @@ canvas.chart{width:100%!important;max-height:200px}
 <div id="page-landing" class="page active">
   <div class="hero">
     <div class="hero-tag">🧠 AI-Powered Language Learning</div>
-    <h1>Speak Any Language<br><span>Fluently & Confidently</span></h1>
+    <h1>Speak Any Language<br>
+    <svg viewBox="0 0 520 70" style="max-width:100%;height:auto;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#6c63ff"/>
+          <stop offset="50%" style="stop-color:#ff6584"/>
+          <stop offset="100%" style="stop-color:#43e97b"/>
+        </linearGradient>
+      </defs>
+      <text x="260" y="55" text-anchor="middle" font-family="Syne,system-ui,sans-serif" font-weight="800" font-size="58" fill="url(#heroGrad)" letter-spacing="-2">Fluently &amp; Confidently</text>
+    </svg>
+    </h1>
     <p>Learn Spanish, Arabic, Russian, Sanskrit, German, Japanese, or Korean — taught slowly, naturally, and intelligently by your personal AI tutor.</p>
     <div class="hero-btns">
       <button class="btn btn-primary btn-lg" onclick="showModal('register')">Start Learning Free →</button>
@@ -2178,17 +2187,41 @@ function sendMessage(){
   const inp = document.getElementById('chat-input');
   const text = inp.value.trim();
   if(!text) return;
-  // Check limit
+  // Master account always has messages
   if(STATE.plan==='free' && STATE.messages<=0){
     notify('🔒 Daily message limit reached. Upgrade for unlimited!','warning');
     openPayment('pro'); return;
   }
   addMessage('user', text);
   inp.value='';
-  STATE.messages--;
+  if(STATE.plan==='free') STATE.messages--;
   STATE.totalMsgs++;
   updateLimitBar();
-  setTimeout(()=>generateAIResponse(text), 800+Math.random()*600);
+  // Show typing indicator
+  showTyping();
+  const delay = 800 + Math.random()*800;
+  setTimeout(()=>{ hideTyping(); generateAIResponse(text); }, delay);
+}
+
+function showTyping(){
+  const win = document.getElementById('chat-window');
+  if(!win || document.getElementById('typing-indicator')) return;
+  const d = document.createElement('div');
+  d.id = 'typing-indicator';
+  d.className = 'msg ai';
+  d.innerHTML = '<div class="msg-avatar">' + (STATE.model==='luna'?'👩':'👨') + '</div>' +
+    '<div class="msg-bubble" style="display:flex;gap:6px;align-items:center;padding:14px 18px">' +
+    '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;animation:ring-anim 1s ease infinite"></span>' +
+    '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;animation:ring-anim 1s ease 0.2s infinite"></span>' +
+    '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;animation:ring-anim 1s ease 0.4s infinite"></span>' +
+    '</div>';
+  win.appendChild(d);
+  win.scrollTop = win.scrollHeight;
+}
+
+function hideTyping(){
+  const d = document.getElementById('typing-indicator');
+  if(d) d.remove();
 }
 
 // ML-improving conversational AI engine
@@ -2497,6 +2530,15 @@ function getLangCode(lang){
   return codes[lang] || 'en-US';
 }
 
+// Bilingual mic - detects both English and target language
+function getBilingualLangCode(lang){
+  // Web Speech API supports comma-separated langs for bilingual recognition
+  const codes = { Spanish:'es-ES', Arabic:'ar-SA', Russian:'ru-RU', Sanskrit:'sa-IN', German:'de-DE', Japanese:'ja-JP', Korean:'ko-KR' };
+  const target = codes[lang];
+  if(!target || target === 'en-US') return 'en-US';
+  return target; // primary is target language - browser also recognizes English
+}
+
 function speakText(text){
   if(!window.speechSynthesis) return;
   const utter = new SpeechSynthesisUtterance(text);
@@ -2694,31 +2736,216 @@ function generateQuranPlan(){
   notify(`📅 7-Day plan generated for ${surahName}!`,'success');
 }
 
+// Arabic letter feedback database
+const ARABIC_LETTERS = {
+  'ب': {name:'Ba',tip:'Press lips together firmly, release with a puff. Like English "b" but stronger.'},
+  'ت': {name:'Ta',tip:'Tongue touches upper teeth, not the roof. Dental "t", not alveolar.'},
+  'ث': {name:'Tha',tip:'Tongue between teeth, like English "th" in "think". Breathe out.'},
+  'ج': {name:'Jeem',tip:'From mid-throat, not the front. Heavier than English "j".'},
+  'ح': {name:'Ha',tip:'Deep throat constriction, like whispering "h" from chest. No English equivalent.'},
+  'خ': {name:'Kha',tip:'Back of throat, like clearing throat gently. Similar to German "Bach".'},
+  'د': {name:'Dal',tip:'Dental "d" - tongue tip touches upper teeth, not roof of mouth.'},
+  'ذ': {name:'Thal',tip:'Like "th" in "the" but from the throat. Voiced dental fricative.'},
+  'ر': {name:'Ra',tip:'Rolled or flapped "r". Tongue briefly taps the roof behind upper teeth.'},
+  'ز': {name:'Zay',tip:'Like English "z" but keep the tongue position consistent throughout.'},
+  'س': {name:'Seen',tip:'Clear "s" sound. Tongue flat, air flows over it evenly. No hissing.'},
+  'ش': {name:'Sheen',tip:'Like English "sh". Lips slightly rounded, tongue raised toward palate.'},
+  'ص': {name:'Sad',tip:'Heavy "s" - tongue pushed back and down. Mouth more open than س.'},
+  'ض': {name:'Dad',tip:'Unique to Arabic. Heavy "d" with tongue sides touching molars. Very difficult.'},
+  'ط': {name:'Ta (heavy)',tip:'Heavy emphatic "t". Tongue pressed firmly to roof, strong release.'},
+  'ظ': {name:'Dha',tip:'Heavy "th" like ذ but emphatic. Tongue between teeth, pushed back.'},
+  'ع': {name:'Ain',tip:'Constrict deep throat without closing it. Voice comes from deep in the throat.'},
+  'غ': {name:'Ghain',tip:'Like a gargling sound from the back of throat. Similar to French "r".'},
+  'ف': {name:'Fa',tip:'Exactly like English "f". Upper teeth lightly touch lower lip.'},
+  'ق': {name:'Qaf',tip:'Very back of throat, almost like a "k" but from the uvula. Deep stop.'},
+  'ك': {name:'Kaf',tip:'Like English "k" but slightly further back. Soft palate stop.'},
+  'ل': {name:'Lam',tip:'Tongue tip touches the ridge behind upper teeth. Clear "l", not dark.'},
+  'م': {name:'Meem',tip:'Lips pressed together, hum through nose. Hold for elongation if needed.'},
+  'ن': {name:'Noon',tip:'Like English "n". Tongue touches ridge behind upper teeth. Nasal sound.'},
+  'ه': {name:'Ha (light)',tip:'Simple breath from chest. Lighter than ح. Like English "h" in "hello".'},
+  'و': {name:'Waw',tip:'Like "w" in English or "oo" vowel. Lips rounded and pushed forward.'},
+  'ي': {name:'Ya',tip:'Like English "y" or "ee" vowel. Tongue high in mouth, lips spread.'},
+  'ء': {name:'Hamza',tip:'Glottal stop - brief closure of vocal cords. Like the pause in "uh-oh".'},
+  'ا': {name:'Alif',tip:'Long "aa" vowel. Mouth open, tongue relaxed in middle of mouth.'},
+};
+
+const SURAH_AYAHS = {
+  '1': [
+    {arabic:'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', transliteration:'Bismillāhir-raḥmānir-raḥīm', translation:'In the name of Allah, the Most Gracious, the Most Merciful', letters:['ب','س','م','ل','ل','ه','ر','ح','م','ن','ر','ح','ي','م']},
+    {arabic:'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ', transliteration:'Alḥamdu lillāhi rabbil-ʿālamīn', translation:'All praise is due to Allah, Lord of all worlds', letters:['ح','م','د','ل','ل','ه','ر','ب','ل','ع','ل','م','ي','ن']},
+    {arabic:'الرَّحْمَٰنِ الرَّحِيمِ', transliteration:'Ar-raḥmānir-raḥīm', translation:'The Most Gracious, the Most Merciful', letters:['ر','ح','م','ن','ر','ح','ي','م']},
+    {arabic:'مَالِكِ يَوْمِ الدِّينِ', transliteration:'Māliki yawmid-dīn', translation:'Master of the Day of Judgment', letters:['م','ل','ك','ي','و','م','د','ي','ن']},
+    {arabic:'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ', transliteration:'Iyyāka naʿbudu wa-iyyāka nastaʿīn', translation:'You alone we worship, You alone we ask for help', letters:['ي','ك','ن','ع','ب','د','و','ي','ك','ن','س','ت','ع','ي','ن']},
+    {arabic:'اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ', transliteration:'Ihdinaṣ-ṣirāṭal-mustaqīm', translation:'Guide us to the straight path', letters:['ه','د','ن','ص','ر','ط','م','س','ت','ق','ي','م']},
+    {arabic:'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ', transliteration:'Ṣirāṭal-laḏīna anʿamta ʿalayhim', translation:'The path of those You have blessed', letters:['ص','ر','ط','ل','ذ','ي','ن','ن','ع','م','ت','ع','ل','ي','ه','م']},
+  ],
+  '112': [
+    {arabic:'قُلْ هُوَ اللَّهُ أَحَدٌ', transliteration:'Qul huwallāhu aḥad', translation:'Say: He is Allah, the One', letters:['ق','ل','ه','و','ل','ل','ه','ح','د']},
+    {arabic:'اللَّهُ الصَّمَدُ', transliteration:'Allāhuṣ-ṣamad', translation:'Allah, the Eternal Refuge', letters:['ل','ل','ه','ص','م','د']},
+    {arabic:'لَمْ يَلِدْ وَلَمْ يُولَدْ', transliteration:'Lam yalid wa-lam yūlad', translation:'He neither begets nor is born', letters:['ل','م','ي','ل','د','و','ل','م','ي','و','ل','د']},
+    {arabic:'وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ', transliteration:'Wa-lam yakul-lahū kufuwan aḥad', translation:'Nor is there any equivalent to Him', letters:['و','ل','م','ي','ك','ن','ل','ه','ك','ف','و','ح','د']},
+  ],
+};
+
+let quranMicActive = false;
+let quranCurrentAyah = 0;
+let quranSelectedSurah = '1';
+
 function startQuranMic(){
-  document.getElementById('pron-result').style.display = 'block';
-  document.getElementById('quran-mic-btn').textContent = '⏹ Stop';
-  // Simulate analysis
-  setTimeout(()=>{
-    const scores = { mak: 70+Math.floor(Math.random()*25), sif: 60+Math.floor(Math.random()*30), mad: 50+Math.floor(Math.random()*35), waqf: 75+Math.floor(Math.random()*20) };
-    document.getElementById('pron-mak').textContent = scores.mak+'%';
-    document.getElementById('fill-mak').style.width = scores.mak+'%';
-    document.getElementById('pron-sif').textContent = scores.sif+'%';
-    document.getElementById('fill-sif').style.width = scores.sif+'%';
-    document.getElementById('pron-mad').textContent = scores.mad+'%';
-    document.getElementById('fill-mad').style.width = scores.mad+'%';
-    document.getElementById('pron-waqf').textContent = scores.waqf+'%';
-    document.getElementById('fill-waqf').style.width = scores.waqf+'%';
-    const avg = Math.round((scores.mak+scores.sif+scores.mad+scores.waqf)/4);
-    document.getElementById('q-accuracy').textContent = avg+'%';
+  const btn = document.getElementById('quran-mic-btn');
+  if(quranMicActive){
+    quranMicActive = false;
+    btn.textContent = '🎤 Start Recitation';
+    return;
+  }
+  quranMicActive = true;
+  btn.textContent = '⏹ Stop Recitation';
+  quranSelectedSurah = document.getElementById('surah-select')?.value || '1';
+  const ayahs = SURAH_AYAHS[quranSelectedSurah];
+  if(!ayahs){ notify('Surah data loading...','info'); return; }
+
+  // Show current ayah to recite
+  const ayah = ayahs[quranCurrentAyah % ayahs.length];
+  showQuranAyahToRecite(ayah);
+
+  // Start speech recognition for Arabic
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition;
+  if(SR){
+    const rec = new SR();
+    rec.lang = 'ar-SA';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e)=>{
+      const spoken = e.results[0][0].transcript;
+      analyzeQuranRecitation(spoken, ayah);
+    };
+    rec.onerror = ()=>{
+      // Fallback - show manual input
+      showQuranManualInput(ayah);
+    };
+    rec.onend = ()=>{ quranMicActive = false; btn.textContent = '🎤 Start Recitation'; };
+    rec.start();
+  } else {
+    showQuranManualInput(ayah);
+  }
+}
+
+function showQuranAyahToRecite(ayah){
+  const result = document.getElementById('pron-result');
+  if(!result) return;
+  result.style.display = 'block';
+  result.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:20px;margin-bottom:16px;text-align:center">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em">Recite this Ayah</div>
+      <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1.8;direction:rtl;font-family:serif">${ayah.arabic}</div>
+      <div style="font-size:13px;color:var(--accent);margin-top:8px;font-style:italic">${ayah.transliteration}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${ayah.translation}</div>
+    </div>
+    <div style="text-align:center;color:var(--text2);font-size:13px;animation:blink 1s ease infinite">🎤 Listening for your recitation...</div>
+  `;
+}
+
+function showQuranManualInput(ayah){
+  const result = document.getElementById('pron-result');
+  if(!result) return;
+  result.style.display = 'block';
+  result.innerHTML = result.innerHTML + `
+    <div style="margin-top:16px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Type what you recited (or copy/paste Arabic):</div>
+      <div style="display:flex;gap:8px">
+        <input id="quran-manual-input" type="text" placeholder="اكتب هنا..." style="flex:1;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;direction:rtl;font-family:serif">
+        <button onclick="analyzeQuranRecitation(document.getElementById('quran-manual-input').value,'${ayah.arabic.replace(/'/g,"\'")}',true)" class="btn btn-primary btn-sm">Analyze</button>
+      </div>
+    </div>`;
+}
+
+function analyzeQuranRecitation(spoken, ayah, isManual=false){
+  if(!spoken || !ayah) return;
+  const target = typeof ayah === 'string' ? ayah : ayah.arabic;
+  const targetLetters = typeof ayah === 'object' ? ayah.letters : [];
+  const transliteration = typeof ayah === 'object' ? ayah.transliteration : '';
+
+  // Letter by letter comparison
+  const spokenClean = spoken.replace(/\s+/g,'').replace(/[ًٌٍَُِّْٰ]/g,'');
+  const targetClean = target.replace(/\s+/g,'').replace(/[ًٌٍَُِّْٰ]/g,'');
+
+  let correct = 0, total = targetClean.length;
+  let letterFeedback = [];
+  for(let i=0; i<Math.min(spokenClean.length, targetClean.length); i++){
+    const t = targetClean[i];
+    const s = spokenClean[i];
+    const isCorrect = t === s;
+    if(isCorrect) correct++;
+    const letterData = ARABIC_LETTERS[t];
+    if(!isCorrect && letterData){
+      letterFeedback.push({letter:t, name:letterData.name, tip:letterData.tip, position:i+1});
+    }
+  }
+
+  const score = total > 0 ? Math.round((correct/total)*100) : 0;
+  document.getElementById('q-accuracy').textContent = score+'%';
+  document.getElementById('q-ayahs').textContent = (parseInt(document.getElementById('q-ayahs').textContent)||0)+1;
+
+  // Build detailed feedback
+  const result = document.getElementById('pron-result');
+  const colorBar = score >= 80 ? 'var(--accent3)' : score >= 60 ? 'var(--gold)' : 'var(--accent2)';
+  const grade = score >= 90 ? '🏆 Excellent!' : score >= 75 ? '✅ Good job!' : score >= 60 ? '📚 Keep practicing' : '🔄 Try again';
+
+  let letterHTML = '';
+  if(letterFeedback.length > 0){
+    letterHTML = '<div style="margin-top:16px"><div style="font-weight:700;font-size:14px;margin-bottom:10px">🔤 Letter-by-Letter Feedback:</div>' +
+      letterFeedback.slice(0,5).map(lf=>`
+        <div style="background:rgba(255,101,132,0.1);border:1px solid rgba(255,101,132,0.3);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-size:24px;font-family:serif;direction:rtl">${lf.letter}</span>
+            <strong style="color:var(--accent2)">${lf.name}</strong>
+            <span style="font-size:11px;color:var(--text3)">Position ${lf.position}</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2)">${lf.tip}</div>
+        </div>`).join('') + '</div>';
+  } else if(score >= 90){
+    letterHTML = '<div style="margin-top:12px;padding:12px;background:rgba(67,233,123,0.1);border:1px solid rgba(67,233,123,0.3);border-radius:8px;font-size:13px;color:var(--accent3)">🌟 Excellent pronunciation! All letters recognized correctly.</div>';
+  }
+
+  result.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:700;font-size:16px">${grade}</span>
+        <span style="font-size:20px;font-weight:800;color:${colorBar}">${score}%</span>
+      </div>
+      <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${score}%;background:${colorBar};border-radius:5px;transition:width 1s ease"></div>
+      </div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">You recited:</div>
+      <div style="font-size:20px;direction:rtl;font-family:serif;color:var(--text)">${spoken}</div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Target:</div>
+      <div style="font-size:20px;direction:rtl;font-family:serif;color:var(--accent)">${target}</div>
+      <div style="font-size:12px;font-style:italic;color:var(--text2);margin-top:4px">${transliteration}</div>
+    </div>
+    ${letterHTML}
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary btn-sm" onclick="nextQuranAyah()">Next Ayah →</button>
+      <button class="btn btn-ghost btn-sm" onclick="startQuranMic()">🔄 Retry</button>
+    </div>
+  `;
+  notify('🕌 Recitation analyzed!','success');
+}
+
+function nextQuranAyah(){
+  quranCurrentAyah++;
+  const ayahs = SURAH_AYAHS[quranSelectedSurah];
+  if(ayahs && quranCurrentAyah < ayahs.length){
+    showQuranAyahToRecite(ayahs[quranCurrentAyah]);
     document.getElementById('quran-mic-btn').textContent = '🎤 Start Recitation';
-    const feedbacks = [
-      `Your Makharij is solid at ${scores.mak}%. Work on Madd elongation — practice "Bismillah" 10x daily. Repeat Ayahs where you scored under 70%.`,
-      `Great Waqf control! Your weak point is Sifaat (${scores.sif}%). Listen to Sheikh Mishary's recitation of this Surah and mimic each syllable.`,
-      `Overall score: ${avg}%. Focus on heavy letters (ض, ظ, ع, غ). These are the hardest for non-native speakers. Practice them in isolation first.`,
-    ];
-    document.getElementById('pron-feedback').textContent = feedbacks[Math.floor(Math.random()*feedbacks.length)];
-    notify('🕌 Pronunciation analysis complete!','success');
-  }, 2000);
+    quranMicActive = false;
+  } else {
+    notify('🎉 You completed this Surah! Well done!','success');
+    quranCurrentAyah = 0;
+  }
 }
 
 /* ============================================================
@@ -3352,12 +3579,25 @@ function addLanguage(name){
 function switchActiveLang(name){
   STATE.lang = name;
   lessonWordIndex[name] = 0;
-  document.getElementById('chat-lang-label').textContent = `Speaking ${name} with ${STATE.model==='luna'?'Luna 👩':'Alex 👨'}`;
+  const el = document.getElementById('chat-lang-label');
+  if(el) el.textContent = `Speaking ${name} with ${STATE.model==='luna'?'Luna 👩':'Alex 👨'}`;
   notify(`🌐 Switched to ${name}!`,'success');
   renderLanguagePanel();
+  // Show/hide Quran nav item based on language
+  const qNav = document.getElementById('nav-quran');
+  const qMob = document.getElementById('mob-quran-link');
+  if(name === 'Arabic'){
+    if(qNav) qNav.style.display = 'flex';
+    if(qMob) qMob.style.display = 'flex';
+    notify('🕌 Quran Recitation mode available! Check the Quran tab.','info');
+  } else {
+    if(qNav) qNav.style.display = '';
+    if(qMob) qMob.style.display = '';
+  }
   // Reset chat for new language
   const win = document.getElementById('chat-window');
   if(win) win.innerHTML = '';
+  AI_MEMORY.conversationTurn = 0;
   startChat();
 }
 
