@@ -1285,6 +1285,7 @@ canvas.chart{width:100%!important;max-height:200px}
       </div>
       <div class="nav-item" onclick="showPanel('quran')" id="nav-quran">
         <span class="icon">🕌</span> Quran Mode
+        <span id="quran-arabic-badge" style="display:none;background:var(--gold);color:#111;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:700;margin-left:auto">Arabic</span>
       </div>
       <div class="nav-item" onclick="showPanel('shop')" id="nav-shop">
         <span class="icon">🛍️</span> Shop
@@ -1930,9 +1931,70 @@ async function hashStr(str){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-// Local "db"
+// ============================================================
+// PERSISTENT STORAGE SYSTEM
+// Saves everything: chat history, progress, settings, topics
+// ============================================================
 let users = JSON.parse(localStorage.getItem('lingua_users') || '[]');
-function saveUsers(){ localStorage.setItem('lingua_users', JSON.stringify(users)) }
+function saveUsers(){ localStorage.setItem('lingua_users', JSON.stringify(users)); }
+
+function saveUserData(){
+  if(!STATE.user) return;
+  const data = {
+    // profile
+    name: STATE.user.name,
+    email: STATE.user.email,
+    password: STATE.user.password,
+    plan: STATE.plan,
+    coins: STATE.coins,
+    model: STATE.model,
+    // languages
+    langs: STATE.onboarding.langs,
+    activeLang: STATE.lang,
+    // onboarding profile
+    interests: STATE.onboarding.interests,
+    topics: STATE.onboarding.topics,
+    langGoal: STATE.onboarding.langGoal,
+    timeline: STATE.onboarding.timeline,
+    lifeGoal: STATE.onboarding.lifeGoal,
+    convTopics: STATE.onboarding.convTopics,
+    // progress stats
+    stats: STATE.stats,
+    wordsLearned: STATE.wordsLearned,
+    wordsNew: STATE.wordsNew,
+    wordsReview: STATE.wordsReview,
+    wordsSpoken: STATE.wordsSpoken,
+    lessonWordIndex: lessonWordIndex,
+    // chat history per language
+    chatHistory: STATE.chatHistory || {},
+    // owned items
+    ownedItems: STATE.ownedItems,
+    ownedVoices: STATE.ownedVoices,
+    roomItems: STATE.roomItems,
+    roomScheme: STATE.roomScheme,
+    // quran progress
+    quranProgress: STATE.quranProgress || {},
+    // ai memory
+    aiMemoryTurn: AI_MEMORY ? AI_MEMORY.conversationTurn : 0,
+    savedAt: Date.now(),
+  };
+  // Save to users array
+  const idx = users.findIndex(u => u.email === STATE.user.email);
+  if(idx >= 0){ users[idx] = {...users[idx], ...data}; }
+  else { users.push(data); }
+  saveUsers();
+  // Also save per-user key for fast load
+  localStorage.setItem('lingua_user_'+STATE.user.email, JSON.stringify(data));
+}
+
+function loadUserData(user){
+  const saved = localStorage.getItem('lingua_user_'+user.email);
+  if(!saved) return null;
+  try { return JSON.parse(saved); } catch(e){ return null; }
+}
+
+// Auto-save every 30 seconds
+setInterval(()=>{ if(STATE.isLoggedIn && !STATE.isMaster) saveUserData(); }, 30000);
 
 // Language map
 const LANG_AI = {
@@ -2040,11 +2102,56 @@ function loginSuccess(user, isMaster){
   STATE.isLoggedIn = true;
   STATE.isMaster = isMaster;
   STATE.user = user;
-  STATE.coins = isMaster ? 999999 : (user.coins||0);
   STATE.plan = isMaster ? 'master' : (user.plan||'free');
   STATE.messages = (STATE.plan==='free') ? 20 : 9999;
   closeModal('login'); closeModal('register');
-  // Update topbar
+
+  // Restore all saved data
+  if(!isMaster){
+    const saved = loadUserData(user);
+    if(saved){
+      STATE.coins = saved.coins || 0;
+      STATE.lang = saved.activeLang || saved.langs?.[0]?.replace(/^[^\w]*/,'').trim().split(' ')[0] || 'Spanish';
+      STATE.model = saved.model || 'luna';
+      STATE.onboarding = {
+        langs: saved.langs || [],
+        interests: saved.interests || [],
+        topics: saved.topics || [],
+        langGoal: saved.langGoal || '',
+        timeline: saved.timeline || '',
+        lifeGoal: saved.lifeGoal || '',
+        convTopics: saved.convTopics || '',
+      };
+      STATE.stats = saved.stats || { learned:0, recognized:0, spoken:0, streak:1, sessions:1, minutes:0 };
+      STATE.wordsLearned = saved.wordsLearned || [];
+      STATE.wordsNew = saved.wordsNew || [];
+      STATE.wordsReview = saved.wordsReview || [];
+      STATE.wordsSpoken = saved.wordsSpoken || [];
+      STATE.ownedItems = saved.ownedItems || [];
+      STATE.ownedVoices = saved.ownedVoices || [];
+      STATE.roomItems = saved.roomItems || [];
+      STATE.roomScheme = saved.roomScheme || 'space';
+      STATE.chatHistory = saved.chatHistory || {};
+      STATE.quranProgress = saved.quranProgress || {};
+      if(saved.lessonWordIndex) lessonWordIndex = saved.lessonWordIndex;
+      if(AI_MEMORY && saved.aiMemoryTurn) AI_MEMORY.conversationTurn = saved.aiMemoryTurn;
+      // Restore streak
+      const today = new Date().toDateString();
+      const lastSave = saved.savedAt ? new Date(saved.savedAt).toDateString() : null;
+      if(lastSave && lastSave !== today) STATE.stats.streak = (STATE.stats.streak||1) + 1;
+      notify('Welcome back, '+user.name+'! Your progress has been restored. 🎉','success');
+    } else {
+      STATE.coins = user.coins || 0;
+      STATE.lang = (user.langs||[])[0]?.replace(/^[^\w]*/,'').trim().split(' ')[0] || 'Spanish';
+      notify('Welcome, '+user.name+'! 🎉','success');
+    }
+  } else {
+    STATE.coins = 999999;
+    STATE.lang = STATE.lang || 'Spanish';
+    notify('👑 Master account logged in. Welcome, Andre!','success');
+  }
+
+  // Update topbar UI
   document.getElementById('topbar-auth').classList.add('hidden');
   document.getElementById('topbar-user').classList.remove('hidden');
   document.getElementById('user-avatar-top').textContent = user.name.charAt(0).toUpperCase();
@@ -2052,24 +2159,53 @@ function loginSuccess(user, isMaster){
   document.getElementById('dropdown-name').textContent = isMaster ? '👑 '+user.name : user.name;
   document.getElementById('dropdown-plan').textContent = isMaster ? 'Master Account ∞' : (STATE.plan==='pro' ? 'Pro Plan' : 'Free Plan');
   document.getElementById('dash-welcome-name').textContent = user.name;
+
   if(isMaster){
     document.getElementById('nav-admin-link').classList.remove('hidden');
     document.getElementById('dropdown-admin').classList.remove('hidden');
     const mal = document.getElementById('mob-admin-link');
     if(mal) mal.classList.remove('hidden');
   }
-  // Go to onboarding if new user
-  if(!isMaster && (!user.langs || user.langs.length===0)){ navigate('onboarding'); }
-  else { navigate('dashboard'); notify('Welcome back, '+user.name+'! 🎉','success'); }
+
+  // Check if Arabic is active lang - show Quran tab
+  if(STATE.lang === 'Arabic'){
+    const qNav = document.getElementById('nav-quran');
+    if(qNav) qNav.style.fontWeight = '700';
+  }
+
+  // Navigate
+  if(!isMaster && (!STATE.onboarding.langs || STATE.onboarding.langs.length===0)){
+    navigate('onboarding');
+  } else {
+    navigate('dashboard');
+    // Restore avatar model
+    setTimeout(()=>{ renderAvatar(STATE.model||'luna'); }, 100);
+    // Update stats display
+    updateStatsDisplay();
+  }
+}
+
+function updateStatsDisplay(){
+  const s = STATE.stats;
+  const setEl = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  setEl('stat-learned', s.learned||0);
+  setEl('stat-recognized', s.recognized||0);
+  setEl('stat-spoken', s.spoken||0);
+  setEl('stat-streak', s.streak||1);
+  setEl('s-learned', s.learned||0);
+  setEl('s-fluency', Math.min(100,(s.learned||0)*2)+'%');
+  setEl('s-sessions', s.sessions||1);
+  setEl('s-minutes', s.minutes||0);
 }
 
 function logout(){
+  if(STATE.isLoggedIn && !STATE.isMaster) saveUserData();
   STATE.isLoggedIn=false; STATE.user=null; STATE.isMaster=false;
   closeUserMenu();
   document.getElementById('topbar-auth').classList.remove('hidden');
   document.getElementById('topbar-user').classList.add('hidden');
   navigate('landing');
-  notify('Logged out. See you soon! 👋','info');
+  notify('Progress saved. See you soon! 👋','info');
 }
 
 function toggleUserMenu(){
@@ -2181,6 +2317,12 @@ function addMessage(who, text, wordData=null){
   win.appendChild(msg);
   win.scrollTop = win.scrollHeight;
   if(who==='ai') speakText(text.substring(0,150));
+  // Save chat history
+  if(!STATE.chatHistory) STATE.chatHistory = {};
+  const lang = STATE.lang || 'Spanish';
+  if(!STATE.chatHistory[lang]) STATE.chatHistory[lang] = [];
+  STATE.chatHistory[lang].push({ who, text: text.substring(0,300), time: Date.now() });
+  if(STATE.chatHistory[lang].length > 100) STATE.chatHistory[lang].shift(); // keep last 100
 }
 
 function sendMessage(){
@@ -3136,17 +3278,59 @@ function renderRoom(){
    VOICES
    ============================================================ */
 const VOICE_SAMPLES = {
-  'Aria':    { text:"Hello! I am Aria, your British English tutor. Shall we begin today?", lang:'en-GB', rate:0.9, pitch:1.1 },
-  'Kai':     { text:"G'day! I'm Kai, your Australian English guide. Let's learn together!", lang:'en-AU', rate:1.0, pitch:0.9 },
-  'Yuki':    { text:"こんにちは！私はYukiです。日本語を一緒に学びましょう！", lang:'ja-JP', rate:0.85, pitch:1.2 },
-  'Hassan':  { text:"السلام عليكم. أنا حسن، مدرسك للغة العربية الفصحى.", lang:'ar-SA', rate:0.8, pitch:0.85 },
-  'Sofia':   { text:"¡Hola! Soy Sofía, tu tutora de español. ¡Empecemos!", lang:'es-ES', rate:0.9, pitch:1.1 },
-  'Otto':    { text:"Guten Tag! Ich bin Otto, dein Deutschlehrer. Fangen wir an!", lang:'de-DE', rate:0.9, pitch:0.85 },
-  'Natasha': { text:"Привет! Я Наташа, твой преподаватель русского языка. Начнём!", lang:'ru-RU', rate:0.85, pitch:1.1 },
-  'Arjun':   { text:"नमस्ते! अहं अर्जुनः। संस्कृतं पठामः।", lang:'hi-IN', rate:0.8, pitch:0.9 },
-  'Joon':    { text:"안녕하세요! 저는 준입니다. 한국어를 함께 배워봐요!", lang:'ko-KR', rate:0.9, pitch:1.0 },
-  'Maria':   { text:"¡Hola! Soy María de Colombia. ¡Aprendamos español juntos!", lang:'es-CO', rate:0.95, pitch:1.15 },
+  // English tutors (AI model voices)
+  'Luna':    { text:"Hello! I am Luna, your warm and patient AI language tutor. Shall we begin?", lang:'en-GB', rate:0.9, pitch:1.15 },
+  'Alex':    { text:"Hey! I am Alex, your energetic AI tutor. Let us learn something amazing today!", lang:'en-AU', rate:1.0, pitch:0.88 },
+  // Spanish
+  'Sofia':   { text:"¡Hola! Soy Sofía. Vamos a aprender español juntos. ¡Empecemos!", lang:'es-ES', rate:0.88, pitch:1.1 },
+  'Diego':   { text:"¡Buenos días! Soy Diego. El español es hermoso. ¡Aprendamos juntos!", lang:'es-ES', rate:0.9, pitch:0.85 },
+  // Arabic
+  'Layla':   { text:"مرحباً! أنا ليلى، معلمتك للغة العربية. هيا نبدأ!", lang:'ar-SA', rate:0.78, pitch:1.1 },
+  'Hassan':  { text:"السلام عليكم. أنا حسن. اللغة العربية جميلة. هيا نتعلم.", lang:'ar-SA', rate:0.8, pitch:0.82 },
+  // Russian
+  'Natasha': { text:"Привет! Я Наташа. Русский язык прекрасен. Давай учиться вместе!", lang:'ru-RU', rate:0.85, pitch:1.12 },
+  'Dmitri':  { text:"Здравствуйте! Я Дмитрий. Добро пожаловать на урок русского языка.", lang:'ru-RU', rate:0.88, pitch:0.82 },
+  // German
+  'Heike':   { text:"Hallo! Ich bin Heike. Deutsch ist eine wunderschöne Sprache. Fangen wir an!", lang:'de-DE', rate:0.88, pitch:1.08 },
+  'Otto':    { text:"Guten Tag! Ich bin Otto. Willkommen zu Ihrem Deutschkurs. Beginnen wir!", lang:'de-DE', rate:0.9, pitch:0.85 },
+  // Japanese
+  'Yuki':    { text:"こんにちは！私はゆきです。日本語を一緒に楽しく学びましょう！", lang:'ja-JP', rate:0.82, pitch:1.2 },
+  'Kenji':   { text:"こんにちは！僕はけんじです。日本語の勉強を始めましょう！", lang:'ja-JP', rate:0.85, pitch:0.85 },
+  // Korean
+  'Jisoo':   { text:"안녕하세요! 저는 지수예요. 한국어를 함께 배워요!", lang:'ko-KR', rate:0.85, pitch:1.15 },
+  'Joon':    { text:"안녕하세요! 저는 준입니다. 한국어 공부 시작합시다!", lang:'ko-KR', rate:0.88, pitch:0.85 },
+  // Sanskrit
+  'Priya':   { text:"नमस्ते! अहं प्रिया। संस्कृतं शिक्षयामि। आगच्छतु!", lang:'hi-IN', rate:0.78, pitch:1.1 },
+  'Arjun':   { text:"नमस्ते! अहं अर्जुनः। संस्कृतम् अतीव सुन्दरम्। पठामः!", lang:'hi-IN', rate:0.8, pitch:0.85 },
 };
+
+// Premium voices with realistic descriptions
+const PREMIUM_VOICES = [
+  // Spanish
+  { icon:'👩', name:'Sofia',   lang:'Spanish',  gender:'Female', accent:'Madrid (Castilian)',      desc:'Crystal clear Castilian Spanish. Perfect for Spain travel and formal use.',           price:200, free:false },
+  { icon:'👨', name:'Diego',   lang:'Spanish',  gender:'Male',   accent:'Latin American',          desc:'Warm Colombian accent, widely understood across all Spanish-speaking countries.',     price:200, free:false },
+  // Arabic
+  { icon:'👩', name:'Layla',   lang:'Arabic',   gender:'Female', accent:'Modern Standard (Fusha)', desc:'Elegant classical Arabic. Ideal for Quran, literature and formal speech.',           price:250, free:false },
+  { icon:'👨', name:'Hassan',  lang:'Arabic',   gender:'Male',   accent:'Gulf Arabic',             desc:'Deep, authoritative Gulf Arabic. Perfect for Quran recitation practice.',            price:250, free:false },
+  // Russian
+  { icon:'👩', name:'Natasha', lang:'Russian',  gender:'Female', accent:'Moscow',                  desc:'Refined Moscow dialect. The clearest and most standard Russian pronunciation.',      price:200, free:false },
+  { icon:'👨', name:'Dmitri',  lang:'Russian',  gender:'Male',   accent:'St. Petersburg',          desc:'Distinguished St. Petersburg accent. Cultural and literary Russian.',                price:200, free:false },
+  // German
+  { icon:'👩', name:'Heike',   lang:'German',   gender:'Female', accent:'Hochdeutsch',             desc:'Standard High German from Hanover. The gold standard of German pronunciation.',      price:200, free:false },
+  { icon:'👨', name:'Otto',    lang:'German',   gender:'Male',   accent:'Bavarian Standard',       desc:'Clear Bavarian-influenced German. Warm and expressive.',                            price:200, free:false },
+  // Japanese
+  { icon:'👩', name:'Yuki',    lang:'Japanese', gender:'Female', accent:'Tokyo (Standard)',        desc:'Natural Tokyo dialect with perfect pitch accent. NHK broadcaster level.',            price:250, free:false },
+  { icon:'👨', name:'Kenji',   lang:'Japanese', gender:'Male',   accent:'Kansai blend',            desc:'Friendly Tokyo-Kansai blend. Natural everyday Japanese.',                           price:250, free:false },
+  // Korean
+  { icon:'👩', name:'Jisoo',   lang:'Korean',   gender:'Female', accent:'Seoul Standard',          desc:'Bright Seoul dialect. Popular K-drama style pronunciation.',                        price:220, free:false },
+  { icon:'👨', name:'Joon',    lang:'Korean',   gender:'Male',   accent:'Seoul Formal',            desc:'Professional Seoul Korean. Clear and authoritative.',                               price:220, free:false },
+  // Sanskrit
+  { icon:'👩', name:'Priya',   lang:'Sanskrit', gender:'Female', accent:'Vedic (Southern)',        desc:'Southern Vedic tradition. Beautiful chanting style pronunciation.',                  price:300, free:false },
+  { icon:'👨', name:'Arjun',   lang:'Sanskrit', gender:'Male',   accent:'Vedic (Northern)',        desc:'Northern Vedic pandit style. Traditional Sanskrit pronunciation.',                  price:300, free:false },
+  // English tutors (free - these are the default AI voices)
+  { icon:'👩', name:'Luna',    lang:'English',  gender:'Female', accent:'British RP',              desc:'Default AI tutor voice. Warm and patient British English.',                          price:0,   free:true  },
+  { icon:'👨', name:'Alex',    lang:'English',  gender:'Male',   accent:'Australian',              desc:'Default AI tutor voice. Energetic Australian English.',                              price:0,   free:true  },
+];
 
 function previewVoice(name){
   const sample = VOICE_SAMPLES[name];
@@ -3154,53 +3338,59 @@ function previewVoice(name){
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(sample.text);
   u.lang = sample.lang; u.rate = sample.rate; u.pitch = sample.pitch;
-  // Wait for voices to load then find best match
   const trySpeak = ()=>{
     const allVoices = window.speechSynthesis.getVoices();
     const langCode = sample.lang.split('-')[0];
-    const match = allVoices.find(v=>v.lang.startsWith(sample.lang)) || allVoices.find(v=>v.lang.startsWith(langCode));
+    const match = allVoices.find(v=>v.lang===sample.lang)
+      || allVoices.find(v=>v.lang.startsWith(langCode))
+      || allVoices.find(v=>v.lang.startsWith('en'));
     if(match) u.voice = match;
     window.speechSynthesis.speak(u);
-    notify('🔊 Previewing ' + name + '...','info');
+    notify('🔊 Previewing '+name+'...','info');
   };
   if(window.speechSynthesis.getVoices().length > 0){ trySpeak(); }
-  else { window.speechSynthesis.onvoiceschanged = trySpeak; }
+  else { window.speechSynthesis.addEventListener('voiceschanged', trySpeak, {once:true}); }
 }
 
 function generateVoices(){
   const grid = document.getElementById('voices-grid');
   if(!grid) return;
   grid.innerHTML = '';
-  const voices = [
-    { icon:'👸', name:'Aria',    lang:'British English',        desc:'Elegant RP accent, formal and clear.',           price:200 },
-    { icon:'🤴', name:'Kai',     lang:'Australian English',     desc:'Warm and relaxed, great for casual chat.',       price:200 },
-    { icon:'👩', name:'Yuki',    lang:'Japanese',               desc:'Native Tokyo dialect, authentic pronunciation.', price:250 },
-    { icon:'🧔', name:'Hassan',  lang:'Arabic (Fusha)',         desc:'Classical Arabic, perfect for Quran learners.',  price:250 },
-    { icon:'👩', name:'Sofia',   lang:'Castilian Spanish',      desc:'Madrid accent, traditional and clear.',          price:200 },
-    { icon:'🧑', name:'Otto',    lang:'German (Hochdeutsch)',   desc:'High German, crisp and precise.',                price:200 },
-    { icon:'👩', name:'Natasha', lang:'Russian (Moscow)',       desc:'Moscow dialect, perfect clarity.',               price:200 },
-    { icon:'🧙', name:'Arjun',   lang:'Sanskrit / Hindi',      desc:'Vedic Sanskrit, ancient tradition.',             price:300 },
-    { icon:'👦', name:'Joon',    lang:'Korean (Seoul)',         desc:'Seoul dialect, modern accent.',                  price:220 },
-    { icon:'👩', name:'Maria',   lang:'Latin American Spanish', desc:'Colombian Spanish, widely understood.',          price:200 },
-  ];
-  grid.innerHTML = voices.map(v=>{
-    const owned = STATE.ownedVoices.includes(v.name);
-    const n = v.name;
-    const p = v.price;
-    return `<div class="voice-card">
-      <div class="voice-icon">${v.icon}</div>
-      <div class="voice-info">
-        <div class="voice-name">${v.name} — ${v.lang}</div>
-        <div class="voice-desc">${v.desc}</div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-ghost btn-sm" onclick="previewVoice('${n}')" style="font-size:12px;padding:6px 12px">🔊 Preview</button>
-          <button class="btn ${owned?'btn-ghost':'btn-gold'} btn-sm" onclick="buyVoice('${n}',${p})">
-            ${owned ? '✅ Active' : '🪙 '+p}
+
+  // Group by language
+  const byLang = {};
+  PREMIUM_VOICES.forEach(v=>{
+    if(!byLang[v.lang]) byLang[v.lang] = [];
+    byLang[v.lang].push(v);
+  });
+
+  let html = '';
+  Object.entries(byLang).forEach(([lang, voices])=>{
+    html += `<div style="grid-column:1/-1;margin:8px 0 4px">
+      <div style="font-family:var(--font-head);font-weight:700;font-size:14px;color:var(--text2);border-bottom:1px solid var(--border);padding-bottom:8px">${lang} Voices</div>
+    </div>`;
+    voices.forEach(v=>{
+      const owned = v.free || STATE.ownedVoices.includes(v.name);
+      html += `<div class="voice-card" style="flex-direction:column;align-items:flex-start;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <div class="voice-icon" style="background:${v.gender==='Female'?'linear-gradient(135deg,#ff6584,#c0392b)':'linear-gradient(135deg,#6c63ff,#3949ab)'}">${v.icon}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px">${v.name}</div>
+            <div style="font-size:11px;color:var(--accent);font-weight:600">${v.gender} · ${v.accent}</div>
+          </div>
+          ${v.free ? '<span style="font-size:10px;background:rgba(67,233,123,0.2);color:var(--accent3);padding:2px 8px;border-radius:10px;font-weight:700">FREE</span>' : ''}
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">${v.desc}</div>
+        <div style="display:flex;gap:8px;width:100%">
+          <button class="btn btn-ghost btn-sm" onclick="previewVoice('${v.name}')" style="font-size:12px">🔊 Preview</button>
+          <button class="btn ${owned?'btn-ghost':'btn-gold'} btn-sm" onclick="buyVoice('${v.name}',${v.price})" style="flex:1">
+            ${owned ? '✅ '+(v.free?'Default':'Owned') : '🪙 '+v.price}
           </button>
         </div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
+    });
+  });
+  grid.innerHTML = html;
 }
 
 
@@ -3583,16 +3773,13 @@ function switchActiveLang(name){
   if(el) el.textContent = `Speaking ${name} with ${STATE.model==='luna'?'Luna 👩':'Alex 👨'}`;
   notify(`🌐 Switched to ${name}!`,'success');
   renderLanguagePanel();
-  // Show/hide Quran nav item based on language
-  const qNav = document.getElementById('nav-quran');
-  const qMob = document.getElementById('mob-quran-link');
+  // Highlight Quran tab for Arabic
+  const qBadge = document.getElementById('quran-arabic-badge');
+  if(qBadge) qBadge.style.display = name==='Arabic' ? 'inline' : 'none';
   if(name === 'Arabic'){
-    if(qNav) qNav.style.display = 'flex';
-    if(qMob) qMob.style.display = 'flex';
-    notify('🕌 Quran Recitation mode available! Check the Quran tab.','info');
-  } else {
-    if(qNav) qNav.style.display = '';
-    if(qMob) qMob.style.display = '';
+    notify('🕌 Arabic selected! Quran Recitation tab is ready for you.','info');
+    // Auto-open quran panel
+    setTimeout(()=>{ showPanel('quran'); }, 1500);
   }
   // Reset chat for new language
   const win = document.getElementById('chat-window');
@@ -3646,7 +3833,8 @@ function saveTopics(){
   STATE.onboarding.timeline = document.getElementById('my-timeline')?.value || '';
   STATE.onboarding.lifeGoal = document.getElementById('my-life-goal')?.value || '';
   STATE.onboarding.convTopics = document.getElementById('my-conv-topics')?.value || '';
-  notify('✅ Profile saved! AI will use these in your next conversation.','success');
+  saveUserData();
+  notify('✅ Profile saved to your account!','success');
 }
 
 /* ============================================================
