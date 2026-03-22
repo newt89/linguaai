@@ -701,9 +701,17 @@ canvas.chart{width:100%!important;max-height:200px}
   transition:background 1s;
 }
 .room-ai{
-  position:absolute;bottom:30%;left:50%;transform:translateX(-50%);
-  width:140px;
+  position:absolute;bottom:30%;left:50%;
+  width:120px;
+  transition:left 2s ease, bottom 1.5s ease;
+  cursor:pointer;
+  filter:drop-shadow(0 8px 20px rgba(108,99,255,0.4));
 }
+@keyframes room-float{
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  50%{transform:translateY(-12px) rotate(1deg)}
+}
+.room-ai svg{animation:room-float 3s ease-in-out infinite}
 .room-items{
   position:absolute;inset:0;pointer-events:none;
 }
@@ -829,18 +837,13 @@ canvas.chart{width:100%!important;max-height:200px}
 @media(max-width:900px){
   .dash-layout{grid-template-columns:1fr}
   .sidebar{display:none}
-  .chat-layout{grid-template-columns:1fr}
-  .ai-video-panel{display:none}
+  .chat-layout{grid-template-columns:1fr!important;display:flex!important;flex-direction:column}
   .word-list-grid{grid-template-columns:1fr}
   #hamburger-btn{display:flex!important}
-}
-@media(max-width:900px){
-  .dash-layout{grid-template-columns:1fr}
-  .sidebar{display:none}
-  .chat-layout{grid-template-columns:1fr}
-  .ai-video-panel{display:none}
-  .word-list-grid{grid-template-columns:1fr}
-  #hamburger-btn{display:flex!important}
+  .ai-video-panel{display:flex!important;width:100%;flex-direction:row!important;gap:12px!important;padding:12px!important;align-items:center!important}
+  .ai-avatar-wrap{width:80px!important;height:80px!important;min-width:80px!important;border-radius:50%!important}
+  .model-select{display:none}
+  .coin-cost{display:none}
 }
 @media(max-width:600px){
   /* Fix gradient text on mobile — must have display:inline-block */
@@ -1548,7 +1551,18 @@ canvas.chart{width:100%!important;max-height:200px}
           <div class="pronunciation-box">
             <h3>🎤 Pronunciation Analysis</h3>
             <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Click the mic and recite an Ayah — the AI will analyze your Tajweed</p>
+            <div style="margin-bottom:12px">
+            <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Current Ayah to recite:</div>
+            <div id="live-ayah-display" style="font-size:26px;direction:rtl;font-family:serif;line-height:2;padding:16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:60px;text-align:center;letter-spacing:2px">
+              <span style="color:var(--text3);font-size:14px;font-family:var(--font-body)">Select a Surah and click Start to begin</span>
+            </div>
+            <div id="live-letter-feedback" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:36px;direction:rtl;justify-content:center"></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
             <button class="btn btn-primary" id="quran-mic-btn" onclick="startQuranMic()">🎤 Start Recitation</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextQuranAyah()">Next Ayah →</button>
+            <div style="font-size:12px;color:var(--text2)">🟢 Correct &nbsp; 🟡 Needs work &nbsp; 🔴 Missed</div>
+          </div>
             <div class="pron-result" id="pron-result" style="display:none">
               <div style="font-size:14px;font-weight:600;margin-bottom:12px">Pronunciation Feedback:</div>
               <div>
@@ -1602,8 +1616,8 @@ canvas.chart{width:100%!important;max-height:200px}
           <div class="room-bg" id="room-bg"></div>
           <div class="room-floor" id="room-floor"></div>
           <div class="room-items" id="room-items-layer"></div>
-          <div class="room-ai">
-            <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+          <div class="room-ai" id="room-ai-figure">
+            <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" id="room-ai-svg">
               <ellipse cx="100" cy="195" rx="55" ry="22" fill="#6c63ff" opacity="0.2"/>
               <rect x="65" y="130" width="70" height="65" rx="20" fill="#2d2d5e"/>
               <ellipse cx="100" cy="132" rx="25" ry="8" fill="#6c63ff" opacity="0.5"/>
@@ -1974,6 +1988,7 @@ function saveUserData(){
     roomScheme: STATE.roomScheme,
     // quran progress
     quranProgress: STATE.quranProgress || {},
+    quranEnabled: STATE.quranEnabled || false,
     // ai memory
     aiMemoryTurn: AI_MEMORY ? AI_MEMORY.conversationTurn : 0,
     savedAt: Date.now(),
@@ -2022,6 +2037,7 @@ function navigate(page){
     generateShop(); generateVoices(); updateSidebarCoins(); updatePlan(); renderWordLists();
     const mn = document.getElementById('mobile-nav');
     if(mn) mn.style.display = 'block';
+    setTimeout(()=>{ renderRoom(); startRoomAIMovement(); renderAvatar(STATE.model||'luna'); }, 200);
   } else {
     const mn = document.getElementById('mobile-nav');
     if(mn) mn.style.display = 'none';
@@ -2133,6 +2149,14 @@ function loginSuccess(user, isMaster){
       STATE.roomScheme = saved.roomScheme || 'space';
       STATE.chatHistory = saved.chatHistory || {};
       STATE.quranProgress = saved.quranProgress || {};
+      STATE.quranEnabled = saved.quranEnabled || false;
+      // Restore Quran badge if Arabic was selected
+      if(STATE.quranEnabled || STATE.lang === 'Arabic'){
+        setTimeout(()=>{
+          const qBadge = document.getElementById('quran-arabic-badge');
+          if(qBadge) qBadge.style.display = 'inline';
+        }, 200);
+      }
       if(saved.lessonWordIndex) lessonWordIndex = saved.lessonWordIndex;
       if(AI_MEMORY && saved.aiMemoryTurn) AI_MEMORY.conversationTurn = saved.aiMemoryTurn;
       // Restore streak
@@ -2684,10 +2708,23 @@ function getBilingualLangCode(lang){
 function speakText(text){
   if(!window.speechSynthesis) return;
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'en-US';
-  utter.rate = 0.9;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utter);
+  const isFemale = STATE.model === 'luna';
+  const langCode = (STATE.lang && STATE.lang !== 'English') ? {
+    Spanish:'es', Arabic:'ar', Russian:'ru', German:'de',
+    Japanese:'ja', Korean:'ko', Sanskrit:'hi'
+  }[STATE.lang] || 'en' : 'en';
+  utter.lang = langCode + '-' + (langCode==='en'?'US':'');
+  utter.rate = 0.88;
+  utter.pitch = isFemale ? 1.5 : 0.7;
+  // Try to get best matching voice
+  const doSpeak = () => {
+    const best = getBestVoice(utter.lang || 'en-US', isFemale ? 'female' : 'male');
+    if(best) utter.voice = best;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  };
+  if(window.speechSynthesis.getVoices().length > 0){ doSpeak(); }
+  else { window.speechSynthesis.addEventListener('voiceschanged', doSpeak, {once:true}); }
 }
 
 function setSpeaking(s){
@@ -2973,18 +3010,30 @@ function startQuranMic(){
 }
 
 function showQuranAyahToRecite(ayah){
+  // Update the live display at top
+  const liveDisplay = document.getElementById('live-ayah-display');
+  if(liveDisplay){
+    // Split Arabic text into individual characters for live highlighting
+    const chars = ayah.arabic.split('');
+    liveDisplay.innerHTML = chars.map((ch,i)=>
+      `<span id="qletter-${i}" style="transition:all 0.3s;display:inline-block;border-radius:4px;padding:0 2px">${ch}</span>`
+    ).join('');
+  }
+  // Clear letter feedback
+  const feedback = document.getElementById('live-letter-feedback');
+  if(feedback) feedback.innerHTML = '';
+
   const result = document.getElementById('pron-result');
-  if(!result) return;
-  result.style.display = 'block';
-  result.innerHTML = `
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:20px;margin-bottom:16px;text-align:center">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.1em">Recite this Ayah</div>
-      <div style="font-size:28px;font-weight:700;color:var(--text);line-height:1.8;direction:rtl;font-family:serif">${ayah.arabic}</div>
-      <div style="font-size:13px;color:var(--accent);margin-top:8px;font-style:italic">${ayah.transliteration}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:4px">${ayah.translation}</div>
-    </div>
-    <div style="text-align:center;color:var(--text2);font-size:13px;animation:blink 1s ease infinite">🎤 Listening for your recitation...</div>
-  `;
+  if(result){
+    result.style.display = 'block';
+    result.innerHTML = `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--accent);font-style:italic;margin-bottom:4px">${ayah.transliteration}</div>
+        <div style="font-size:13px;color:var(--text2)">${ayah.translation}</div>
+      </div>
+      <div style="text-align:center;color:var(--accent);font-size:14px;font-weight:600;animation:blink 1.5s ease infinite">🎤 Listening... recite the Ayah above</div>
+    `;
+  }
 }
 
 function showQuranManualInput(ayah){
@@ -3007,21 +3056,61 @@ function analyzeQuranRecitation(spoken, ayah, isManual=false){
   const targetLetters = typeof ayah === 'object' ? ayah.letters : [];
   const transliteration = typeof ayah === 'object' ? ayah.transliteration : '';
 
-  // Letter by letter comparison
+  // Letter by letter comparison with LIVE highlighting
   const spokenClean = spoken.replace(/\s+/g,'').replace(/[ًٌٍَُِّْٰ]/g,'');
   const targetClean = target.replace(/\s+/g,'').replace(/[ًٌٍَُِّْٰ]/g,'');
+  const targetFull = target.split('');
 
   let correct = 0, total = targetClean.length;
   let letterFeedback = [];
-  for(let i=0; i<Math.min(spokenClean.length, targetClean.length); i++){
-    const t = targetClean[i];
-    const s = spokenClean[i];
-    const isCorrect = t === s;
+  const letterResults = [];
+
+  for(let i=0; i<targetFull.length; i++){
+    const t = targetFull[i];
+    const tClean = t.replace(/[ًٌٍَُِّْٰ]/g,'');
+    if(!tClean.trim()){ letterResults.push({char:t,status:'space'}); continue; }
+    const s = spokenClean[i] || '';
+    const isCorrect = tClean === s;
+    const partialMatch = !isCorrect && s && ARABIC_LETTERS[tClean] && ARABIC_LETTERS[s];
     if(isCorrect) correct++;
-    const letterData = ARABIC_LETTERS[t];
-    if(!isCorrect && letterData){
-      letterFeedback.push({letter:t, name:letterData.name, tip:letterData.tip, position:i+1});
+    const status = isCorrect ? 'correct' : (s ? (partialMatch?'partial':'wrong') : 'missed');
+    letterResults.push({char:t, tClean, status, position:i});
+    const letterData = ARABIC_LETTERS[tClean];
+    if(!isCorrect && letterData && tClean){
+      letterFeedback.push({letter:tClean, name:letterData.name, tip:letterData.tip, position:i+1, status});
     }
+  }
+
+  // Apply color highlighting to each letter in the live display
+  const liveDisplay = document.getElementById('live-ayah-display');
+  if(liveDisplay){
+    letterResults.forEach((lr,i)=>{
+      const el = document.getElementById('qletter-'+i);
+      if(!el) return;
+      const colors = {
+        correct: {bg:'rgba(67,233,123,0.25)',color:'#43e97b',border:'rgba(67,233,123,0.5)'},
+        partial: {bg:'rgba(247,201,72,0.25)',color:'#f7c948',border:'rgba(247,201,72,0.5)'},
+        wrong:   {bg:'rgba(255,101,132,0.25)',color:'#ff6584',border:'rgba(255,101,132,0.5)'},
+        missed:  {bg:'rgba(255,101,132,0.15)',color:'#ff4757',border:'rgba(255,101,132,0.4)'},
+        space:   {bg:'transparent',color:'inherit',border:'transparent'},
+      };
+      const c = colors[lr.status] || colors.space;
+      el.style.background = c.bg;
+      el.style.color = c.color;
+      el.style.border = '1px solid '+c.border;
+      el.style.borderRadius = '4px';
+      el.title = lr.tClean ? (ARABIC_LETTERS[lr.tClean]?.name || lr.tClean)+': '+lr.status : '';
+    });
+  }
+
+  // Update letter feedback strip
+  const feedbackStrip = document.getElementById('live-letter-feedback');
+  if(feedbackStrip){
+    feedbackStrip.innerHTML = letterResults.filter(lr=>lr.status!=='space').map((lr,i)=>{
+      const icons = {correct:'🟢',partial:'🟡',wrong:'🔴',missed:'⚫'};
+      return `<span title="${lr.tClean?ARABIC_LETTERS[lr.tClean]?.name||lr.tClean:''}: ${lr.status}"
+        style="font-size:18px;font-family:serif;cursor:help">${lr.char}${icons[lr.status]||''}</span>`;
+    }).join('');
   }
 
   const score = total > 0 ? Math.round((correct/total)*100) : 0;
@@ -3269,40 +3358,101 @@ function renderRoom(){
   document.getElementById('room-bg').style.background = sc.bg;
   document.getElementById('room-floor').style.background = sc.floor;
   const layer = document.getElementById('room-items-layer');
-  layer.innerHTML = STATE.roomItems.map((it,i)=>`
+  if(layer) layer.innerHTML = STATE.roomItems.map((it,i)=>`
     <div class="room-item-placed" data-pos="${it.pos}" style="animation-delay:${i*0.3}s" title="${it.name}">${it.emoji}</div>
   `).join('');
+}
+
+// Random AI movement around the room
+let roomMoveInterval = null;
+function startRoomAIMovement(){
+  if(roomMoveInterval) clearInterval(roomMoveInterval);
+  roomMoveInterval = setInterval(()=>{
+    const fig = document.getElementById('room-ai-figure');
+    if(!fig) return;
+    const positions = [
+      {left:'15%', bottom:'28%'}, {left:'30%', bottom:'30%'},
+      {left:'50%', bottom:'32%'}, {left:'65%', bottom:'28%'},
+      {left:'78%', bottom:'30%'}, {left:'40%', bottom:'35%'},
+      {left:'55%', bottom:'26%'}, {left:'25%', bottom:'33%'},
+    ];
+    const pos = positions[Math.floor(Math.random()*positions.length)];
+    fig.style.left = pos.left;
+    fig.style.bottom = pos.bottom;
+    // Random expression change
+    const svg = document.getElementById('room-ai-svg');
+    if(svg){
+      const mouth = svg.querySelector('#mouth-room');
+      if(mouth){
+        const exprs = [
+          'M88 100 Q100 109 112 100',
+          'M88 105 Q100 112 112 105',
+          'M90 103 Q100 108 110 103',
+        ];
+        mouth.setAttribute('d', exprs[Math.floor(Math.random()*exprs.length)]);
+      }
+    }
+  }, 3000 + Math.random()*2000);
 }
 
 /* ============================================================
    VOICES
    ============================================================ */
 const VOICE_SAMPLES = {
-  // English tutors (AI model voices)
-  'Luna':    { text:"Hello! I am Luna, your warm and patient AI language tutor. Shall we begin?", lang:'en-GB', rate:0.9, pitch:1.15 },
-  'Alex':    { text:"Hey! I am Alex, your energetic AI tutor. Let us learn something amazing today!", lang:'en-AU', rate:1.0, pitch:0.88 },
+  // Female voices: pitch 1.4-1.6, prefer female OS voice
+  // Male voices: pitch 0.65-0.8, prefer male OS voice
+  // English tutors
+  'Luna':    { text:"Hello! I am Luna, your warm and patient AI tutor. Let us begin!", lang:'en-GB', rate:0.88, pitch:1.5, gender:'female' },
+  'Alex':    { text:"Hey! I am Alex, your energetic AI tutor. Let us learn today!", lang:'en-US', rate:1.0,  pitch:0.7,  gender:'male' },
+  // Premium English
+  'Eleanor': { text:"Good day! I am Eleanor, your premium British English tutor. Shall we begin your lesson?", lang:'en-GB', rate:0.85, pitch:1.55, gender:'female' },
+  'Marcus':  { text:"Hello! I am Marcus. I will guide your English with clarity and confidence.", lang:'en-US', rate:0.95, pitch:0.65, gender:'male' },
   // Spanish
-  'Sofia':   { text:"¡Hola! Soy Sofía. Vamos a aprender español juntos. ¡Empecemos!", lang:'es-ES', rate:0.88, pitch:1.1 },
-  'Diego':   { text:"¡Buenos días! Soy Diego. El español es hermoso. ¡Aprendamos juntos!", lang:'es-ES', rate:0.9, pitch:0.85 },
+  'Sofia':   { text:"Hola! Soy Sofia. Vamos a aprender espanol juntos!", lang:'es-ES', rate:0.88, pitch:1.45, gender:'female' },
+  'Diego':   { text:"Buenos dias! Soy Diego. El espanol es hermoso. Aprendamos juntos!", lang:'es-MX', rate:0.9,  pitch:0.7,  gender:'male' },
   // Arabic
-  'Layla':   { text:"مرحباً! أنا ليلى، معلمتك للغة العربية. هيا نبدأ!", lang:'ar-SA', rate:0.78, pitch:1.1 },
-  'Hassan':  { text:"السلام عليكم. أنا حسن. اللغة العربية جميلة. هيا نتعلم.", lang:'ar-SA', rate:0.8, pitch:0.82 },
+  'Layla':   { text:"مرحبا! انا ليلى، معلمتك للغة العربية. هيا نبدأ!", lang:'ar-SA', rate:0.75, pitch:1.5,  gender:'female' },
+  'Hassan':  { text:"السلام عليكم. انا حسن. اللغة العربية جميلة. هيا نتعلم.", lang:'ar-SA', rate:0.78, pitch:0.65, gender:'male' },
   // Russian
-  'Natasha': { text:"Привет! Я Наташа. Русский язык прекрасен. Давай учиться вместе!", lang:'ru-RU', rate:0.85, pitch:1.12 },
-  'Dmitri':  { text:"Здравствуйте! Я Дмитрий. Добро пожаловать на урок русского языка.", lang:'ru-RU', rate:0.88, pitch:0.82 },
+  'Natasha': { text:"Privet! Ya Natasha. Russkiy yazyk prekrasen. Davay uchitsya vmeste!", lang:'ru-RU', rate:0.85, pitch:1.5,  gender:'female' },
+  'Dmitri':  { text:"Zdravstvuyte! Ya Dmitriy. Dobro pozhalovat na urok russkogo yazyka.", lang:'ru-RU', rate:0.88, pitch:0.65, gender:'male' },
   // German
-  'Heike':   { text:"Hallo! Ich bin Heike. Deutsch ist eine wunderschöne Sprache. Fangen wir an!", lang:'de-DE', rate:0.88, pitch:1.08 },
-  'Otto':    { text:"Guten Tag! Ich bin Otto. Willkommen zu Ihrem Deutschkurs. Beginnen wir!", lang:'de-DE', rate:0.9, pitch:0.85 },
+  'Heike':   { text:"Hallo! Ich bin Heike. Deutsch ist wunderschoen. Fangen wir an!", lang:'de-DE', rate:0.88, pitch:1.5,  gender:'female' },
+  'Otto':    { text:"Guten Tag! Ich bin Otto. Willkommen zu Ihrem Deutschkurs. Beginnen wir!", lang:'de-DE', rate:0.9,  pitch:0.65, gender:'male' },
   // Japanese
-  'Yuki':    { text:"こんにちは！私はゆきです。日本語を一緒に楽しく学びましょう！", lang:'ja-JP', rate:0.82, pitch:1.2 },
-  'Kenji':   { text:"こんにちは！僕はけんじです。日本語の勉強を始めましょう！", lang:'ja-JP', rate:0.85, pitch:0.85 },
+  'Yuki':    { text:"Konnichiwa! Watashi wa Yuki desu. Nihongo wo tanoshiku manabimashoo!", lang:'ja-JP', rate:0.82, pitch:1.55, gender:'female' },
+  'Kenji':   { text:"Konnichiwa! Boku wa Kenji desu. Nihongo no benkyoo wo hajimemashoo!", lang:'ja-JP', rate:0.85, pitch:0.65, gender:'male' },
   // Korean
-  'Jisoo':   { text:"안녕하세요! 저는 지수예요. 한국어를 함께 배워요!", lang:'ko-KR', rate:0.85, pitch:1.15 },
-  'Joon':    { text:"안녕하세요! 저는 준입니다. 한국어 공부 시작합시다!", lang:'ko-KR', rate:0.88, pitch:0.85 },
+  'Jisoo':   { text:"Annyeonghaseyo! Jeoneun Jisoo yeyo. Hangugeo reul hamkke baeweoyo!", lang:'ko-KR', rate:0.85, pitch:1.5,  gender:'female' },
+  'Joon':    { text:"Annyeonghaseyo! Jeoneun Jun imnida. Hangugeo gongbu sijak hapsida!", lang:'ko-KR', rate:0.88, pitch:0.65, gender:'male' },
   // Sanskrit
-  'Priya':   { text:"नमस्ते! अहं प्रिया। संस्कृतं शिक्षयामि। आगच्छतु!", lang:'hi-IN', rate:0.78, pitch:1.1 },
-  'Arjun':   { text:"नमस्ते! अहं अर्जुनः। संस्कृतम् अतीव सुन्दरम्। पठामः!", lang:'hi-IN', rate:0.8, pitch:0.85 },
+  'Priya':   { text:"Namaste! Aham Priya. Samskrtam shikshayaami. Aagacchatu!", lang:'hi-IN', rate:0.78, pitch:1.5,  gender:'female' },
+  'Arjun':   { text:"Namaste! Aham Arjunah. Samskrtam atiiva sundaram. Pathaamah!", lang:'hi-IN', rate:0.8,  pitch:0.65, gender:'male' },
 };
+
+// Smart voice selector - finds best male/female voice for language
+function getBestVoice(lang, gender){
+  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  if(!voices.length) return null;
+  const langCode = lang.split('-')[0].toLowerCase();
+  // Try to find gender-specific voice by name keywords
+  const femaleKeywords = ['female','woman','girl','zira','hazel','karen','moira','samantha','victoria','fiona','tessa','ava','siri'];
+  const maleKeywords = ['male','man','boy','daniel','mark','alex','fred','rishi','jorge','diego','otto','kenji'];
+  const keywords = gender==='female' ? femaleKeywords : maleKeywords;
+  // First try: exact language + gender keyword
+  let match = voices.find(v=>
+    v.lang.toLowerCase().startsWith(langCode) &&
+    keywords.some(k=>v.name.toLowerCase().includes(k))
+  );
+  // Second try: any voice for this language
+  if(!match) match = voices.find(v=>v.lang.toLowerCase().startsWith(langCode));
+  // Third try: any English voice with gender
+  if(!match) match = voices.find(v=>
+    v.lang.startsWith('en') &&
+    keywords.some(k=>v.name.toLowerCase().includes(k))
+  );
+  return match || null;
+}
 
 // Premium voices with realistic descriptions
 const PREMIUM_VOICES = [
@@ -3330,26 +3480,32 @@ const PREMIUM_VOICES = [
   // English tutors (free - these are the default AI voices)
   { icon:'👩', name:'Luna',    lang:'English',  gender:'Female', accent:'British RP',              desc:'Default AI tutor voice. Warm and patient British English.',                          price:0,   free:true  },
   { icon:'👨', name:'Alex',    lang:'English',  gender:'Male',   accent:'Australian',              desc:'Default AI tutor voice. Energetic Australian English.',                              price:0,   free:true  },
+  // Premium English voices
+  { icon:'👸', name:'Aria',    lang:'English',  gender:'Female', accent:'Premium British RP',      desc:'Ultra-refined BBC English. Deep, smooth female voice. The most elegant English tutor available.',  price:350, free:false },
+  { icon:'🎙️', name:'Liam',    lang:'English',  gender:'Male',   accent:'Premium American Deep',   desc:'Deep, commanding American male voice. Clear articulation. Perfect for professional learning.',       price:350, free:false },
 ];
 
 function previewVoice(name){
   const sample = VOICE_SAMPLES[name];
-  if(!sample || !window.speechSynthesis){ notify('Preview not available in this browser','info'); return; }
+  if(!sample){ notify('No preview for this voice','info'); return; }
+  if(!window.speechSynthesis){ notify('Speech not supported in this browser','error'); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(sample.text);
-  u.lang = sample.lang; u.rate = sample.rate; u.pitch = sample.pitch;
-  const trySpeak = ()=>{
-    const allVoices = window.speechSynthesis.getVoices();
-    const langCode = sample.lang.split('-')[0];
-    const match = allVoices.find(v=>v.lang===sample.lang)
-      || allVoices.find(v=>v.lang.startsWith(langCode))
-      || allVoices.find(v=>v.lang.startsWith('en'));
-    if(match) u.voice = match;
+  u.lang  = sample.lang;
+  u.rate  = sample.rate;
+  u.pitch = sample.pitch;
+  const doSpeak = () => {
+    const best = getBestVoice(sample.lang, sample.gender||'female');
+    if(best){
+      u.voice = best;
+      console.log('Using voice:', best.name, 'for', name);
+    }
     window.speechSynthesis.speak(u);
-    notify('🔊 Previewing '+name+'...','info');
+    notify('🔊 Previewing ' + name + '...', 'info');
   };
-  if(window.speechSynthesis.getVoices().length > 0){ trySpeak(); }
-  else { window.speechSynthesis.addEventListener('voiceschanged', trySpeak, {once:true}); }
+  const vList = window.speechSynthesis.getVoices();
+  if(vList.length > 0){ doSpeak(); }
+  else { window.speechSynthesis.addEventListener('voiceschanged', doSpeak, {once:true}); }
 }
 
 function generateVoices(){
@@ -3773,13 +3929,17 @@ function switchActiveLang(name){
   if(el) el.textContent = `Speaking ${name} with ${STATE.model==='luna'?'Luna 👩':'Alex 👨'}`;
   notify(`🌐 Switched to ${name}!`,'success');
   renderLanguagePanel();
-  // Highlight Quran tab for Arabic
-  const qBadge = document.getElementById('quran-arabic-badge');
-  if(qBadge) qBadge.style.display = name==='Arabic' ? 'inline' : 'none';
+  // Save Arabic/Quran preference permanently
   if(name === 'Arabic'){
-    notify('🕌 Arabic selected! Quran Recitation tab is ready for you.','info');
-    // Auto-open quran panel
+    STATE.quranEnabled = true;
+    saveUserData();
+    const qBadge = document.getElementById('quran-arabic-badge');
+    if(qBadge) qBadge.style.display = 'inline';
+    notify('🕌 Arabic selected! Quran Recitation is permanently enabled.','info');
     setTimeout(()=>{ showPanel('quran'); }, 1500);
+  } else {
+    const qBadge = document.getElementById('quran-arabic-badge');
+    if(qBadge) qBadge.style.display = 'none';
   }
   // Reset chat for new language
   const win = document.getElementById('chat-window');
