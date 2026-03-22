@@ -2750,19 +2750,21 @@ function generateVoices(){
   ];
   grid.innerHTML = voices.map(v=>{
     const owned = STATE.ownedVoices.includes(v.name);
-    return '<div class="voice-card">' +
-      '<div class="voice-icon">' + v.icon + '</div>' +
-      '<div class="voice-info">' +
-        '<div class="voice-name">' + v.name + ' — ' + v.lang + '</div>' +
-        '<div class="voice-desc">' + v.desc + '</div>' +
-        '<div style="display:flex;gap:8px;margin-top:10px">' +
-          '<button class="btn btn-ghost btn-sm" onclick="previewVoice('' + v.name + '')" style="font-size:12px;padding:6px 12px">🔊 Preview</button>' +
-          '<button class="btn ' + (owned?'btn-ghost':'btn-gold') + ' btn-sm" onclick="buyVoice('' + v.name + '',' + v.price + ')">' +
-            (owned ? '✅ Active' : '🪙 ' + v.price) +
-          '</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
+    const n = v.name;
+    const p = v.price;
+    return `<div class="voice-card">
+      <div class="voice-icon">${v.icon}</div>
+      <div class="voice-info">
+        <div class="voice-name">${v.name} — ${v.lang}</div>
+        <div class="voice-desc">${v.desc}</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" onclick="previewVoice('${n}')" style="font-size:12px;padding:6px 12px">🔊 Preview</button>
+          <button class="btn ${owned?'btn-ghost':'btn-gold'} btn-sm" onclick="buyVoice('${n}',${p})">
+            ${owned ? '✅ Active' : '🪙 '+p}
+          </button>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
