@@ -143,13 +143,19 @@ body.light .glass{background:rgba(255,255,255,0.75)}
 body.light #topbar{background:rgba(240,240,250,0.9)}
 .logo{
   font-family:var(--font-head);font-weight:800;font-size:22px;
-  background:linear-gradient(90deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  color:transparent;
   letter-spacing:-0.03em;
   display:inline-block;
+  position:relative;
+  color:var(--accent);/* fallback for browsers that don't support gradient text */
+}
+@supports(-webkit-background-clip:text) or (background-clip:text){
+  .logo{
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    color:transparent;
+  }
 }
 
 .topbar-right{display:flex;align-items:center;gap:12px}
@@ -211,12 +217,17 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
   margin-bottom:20px;
 }
 .hero h1 span{
-  background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  color:transparent;
   display:inline-block;
+  color:var(--accent);/* solid fallback */
+}
+@supports(-webkit-background-clip:text) or (background-clip:text){
+  .hero h1 span{
+    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    color:transparent;
+  }
 }
 .hero p{
   font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 36px;
@@ -846,21 +857,10 @@ canvas.chart{width:100%!important;max-height:200px}
   .hero h1{font-size:clamp(28px,9vw,42px);line-height:1.15}
   .hero h1 span{
     display:inline-block;
-    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    color:transparent;
-    padding-bottom:2px;/* prevents clipping on some mobile browsers */
+    padding-bottom:4px;
   }
   .logo{
     font-size:18px;
-    display:inline-block;
-    background:linear-gradient(90deg,var(--accent),var(--accent2));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    color:transparent;
   }
   /* Hide signup button text on very small screens */
   .topbar-right .btn-primary span{ display:none }
