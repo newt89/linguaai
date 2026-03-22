@@ -2058,6 +2058,7 @@ function showPanel(p){
   if(p==='admin') loadAdminData();
   if(p==='langs') renderLanguagePanel();
   if(p==='topics') renderTopicsPanel();
+  if(p==='quran') populateSurahSelect();
   // sync mobile nav
   setMobNav(p);
   closeMobileMore();
@@ -2398,15 +2399,26 @@ const AI_MEMORY = {
 
 function buildAIPersonality(){
   const name = STATE.model==='luna' ? 'Luna' : 'Alex';
-  const interests = (STATE.onboarding.interests||[]).map(i=>i.replace(/^[^\w]*/,'')).join(', ') || 'general topics';
-  const topics = (STATE.onboarding.topics||[]).map(t=>t.replace(/^[^\w]*/,'')).join(', ') || 'daily life';
+  const interests = (STATE.onboarding.interests||[]).map(i=>i.replace(/^[^\w]*/,'')).filter(Boolean);
+  const topics = (STATE.onboarding.topics||[]).map(t=>t.replace(/^[^\w]*/,'')).filter(Boolean);
   const goal = STATE.onboarding.langGoal || 'conversational fluency';
   const lifeGoal = STATE.onboarding.lifeGoal || '';
-  const convTopics = STATE.onboarding.convTopics || '';
+  const convTopics = (STATE.onboarding.convTopics||'').split(',').map(t=>t.trim()).filter(Boolean);
   const lang = STATE.lang || 'Spanish';
   const timeline = STATE.onboarding.timeline || '6 months';
   return { name, interests, topics, goal, lifeGoal, convTopics, lang, timeline };
 }
+
+// Conversation state - tracks what we're currently discussing
+const CONV_STATE = {
+  currentTopic: '',
+  currentSubject: '',
+  awaitingAnswer: false,
+  lastQuestion: '',
+  exchangeCount: 0,  // how many exchanges on same topic
+  maxExchanges: 4,   // switch topic after this many exchanges
+  userResponses: [], // remember what user said
+};
 
 function generateAIResponse(userText){
   const lang = STATE.lang || 'Spanish';
@@ -2414,13 +2426,14 @@ function generateAIResponse(userText){
   const p = buildAIPersonality();
   AI_MEMORY.userPatterns.push(userText.toLowerCase());
   AI_MEMORY.conversationTurn++;
+  CONV_STATE.userResponses.push(userText);
+  CONV_STATE.exchangeCount++;
 
-  // Pick next word to teach slowly (every 2-3 messages)
+  // Teach a word slowly - every 3 messages
   if(!lessonWordIndex[lang]) lessonWordIndex[lang] = 0;
   const wordPool = data.words;
   const nextWords = [];
-  const shouldTeachWord = AI_MEMORY.conversationTurn % 2 === 0;
-  if(shouldTeachWord && lessonWordIndex[lang] < wordPool.length){
+  if(AI_MEMORY.conversationTurn % 3 === 0 && lessonWordIndex[lang] < wordPool.length){
     nextWords.push(wordPool[lessonWordIndex[lang]]);
     lessonWordIndex[lang]++;
     addNewWord(wordPool[lessonWordIndex[lang]-1][0], wordPool[lessonWordIndex[lang]-1][1]);
@@ -2430,67 +2443,106 @@ function generateAIResponse(userText){
     const sf = document.getElementById('s-fluency'); if(sf) sf.textContent = Math.min(100,STATE.stats.learned*2)+'%';
   }
 
-  // Pick a topic to talk about from user's profile
+  // Pick topic - STICK to current topic until exchange count exceeded
   const allTopics = [
-    ...(STATE.onboarding.interests||[]),
-    ...(STATE.onboarding.topics||[]),
-    ...(STATE.onboarding.convTopics||'').split(',').filter(Boolean)
-  ].map(t=>t.replace(/^[^\w]*/,'').trim()).filter(Boolean);
+    ...p.interests, ...p.topics, ...p.convTopics
+  ].filter(Boolean);
 
-  const topic = allTopics.length
-    ? allTopics[AI_MEMORY.conversationTurn % allTopics.length]
-    : 'your daily life';
-
-  // Detect what the user said for context
-  const lowerText = userText.toLowerCase();
-  const isQuestion = lowerText.includes('?');
-  const isShort = userText.split(' ').length < 4;
-  const mentionsTopic = allTopics.some(t => lowerText.includes(t.toLowerCase().split(' ')[0]));
-
-  // Build natural conversational responses with personality
-  let response = '';
-  const turn = AI_MEMORY.conversationTurn;
-  const wordPart = nextWords.length
-    ? ` By the way, here's a new ${lang} word for you — "${nextWords[0][0]}" means "${nextWords[0][1]}". Try using it!`
-    : '';
-
-  // Questions the AI asks to keep conversation going
-  const followUpQuestions = [
-    `What do you enjoy most about ${topic}? Tell me in English and I'll help you say it in ${lang}!`,
-    `That's interesting! Have you ever experienced something related to ${topic} in a ${lang}-speaking country?`,
-    `How do you feel about ${topic}? Do you have a personal story you'd like to share?`,
-    `In your goal to ${p.goal}, how does ${topic} connect to your life? I'd love to know more!`,
-    `Tell me more! What specifically about ${topic} interests you the most?`,
-    `${p.lifeGoal ? 'You mentioned wanting to ' + p.lifeGoal + '. How does ' + topic + ' fit into that plan?' : 'What motivates you to learn ' + lang + ' right now?'}`,
-    `If you could have a full conversation in ${lang} right now, what would you talk about with a native speaker?`,
-    `Have you tried any ${lang} media — music, movies, or shows? What did you think?`,
-    `What's the hardest part of learning ${lang} for you so far? I want to help you overcome it!`,
-    `Imagine you're in a ${lang}-speaking country. What's the first thing you'd want to say?`,
-  ];
-
-  const question = followUpQuestions[turn % followUpQuestions.length];
-
-  if(turn === 1){
-    response = `Wonderful to meet you! I see you're interested in ${topic} — that's a great starting point for our ${lang} lessons. ${wordPart} Now, ${question}`;
-  } else if(isQuestion){
-    response = `Great question! In ${lang} we'd express that very naturally. ${wordPart} I'm curious — ${question}`;
-  } else if(isShort){
-    response = `I hear you! Let's dig deeper. ${wordPart} ${question}`;
-  } else if(mentionsTopic){
-    response = `I love that you brought up ${topic}! That's exactly what we should be connecting to your ${lang} learning. ${wordPart} ${question}`;
-  } else if(turn % 3 === 0){
-    response = `You're making real progress — I can see your ${lang} is improving. ${wordPart} Let me ask you something personal: ${question}`;
-  } else {
-    response = `Interesting! I'm learning more about you with every message. ${wordPart} Here's what I'd like to explore with you: ${question}`;
+  if(!CONV_STATE.currentTopic || CONV_STATE.exchangeCount > CONV_STATE.maxExchanges){
+    const idx = Math.floor(AI_MEMORY.conversationTurn / (CONV_STATE.maxExchanges+1)) % Math.max(1, allTopics.length);
+    CONV_STATE.currentTopic = allTopics[idx] || 'your daily life';
+    CONV_STATE.exchangeCount = 0;
+    CONV_STATE.awaitingAnswer = false;
   }
 
-  AI_MEMORY.lastTopic = topic;
+  const topic = CONV_STATE.currentTopic;
+  const lowerText = userText.toLowerCase();
+  const wordCount = userText.trim().split(/\s+/).length;
+  const isVeryShort = wordCount < 3;
+  const isLong = wordCount > 15;
+  const isQuestion = lowerText.includes('?');
+  const hasYes = /^(yes|yeah|yep|si|oui|da|hai|ne|sure|absolutely|definitely|of course)/i.test(lowerText);
+  const hasNo = /^(no|nope|not|never|nah|non|nein|iie)/i.test(lowerText);
+  const lastResponse = CONV_STATE.userResponses.slice(-2,-1)[0] || '';
+  const wordTeach = nextWords.length ? `\n\n💡 New ${lang} word: **${nextWords[0][0]}** = "${nextWords[0][1]}". Try using it!` : '';
+
+  // Build deeply contextual response that CONTINUES the conversation
+  let response = '';
+  const turn = AI_MEMORY.conversationTurn;
+
+  if(turn === 1){
+    // Opening - introduce topic naturally
+    response = `Great to meet you! I can see you're interested in ${topic} — that's something we can definitely weave into your ${lang} learning. I'd love to get to know you better first. Tell me, how did you first get interested in ${topic}? And how long have you been wanting to learn ${lang}?${wordTeach}`;
+    CONV_STATE.awaitingAnswer = true;
+    CONV_STATE.lastQuestion = 'how did you get interested in '+topic;
+
+  } else if(isQuestion && CONV_STATE.awaitingAnswer){
+    // User asked a question back - answer it then re-engage
+    response = `That's a great question! In ${lang}, when we talk about ${topic}, we use expressions like these naturally in conversation. ${wordTeach} But I'm more curious about you — ${CONV_STATE.lastQuestion ? 'you didn\'t finish telling me: ' + CONV_STATE.lastQuestion : 'what\'s your take on ' + topic + '?'}`;
+
+  } else if(hasYes){
+    // User said yes - dig deeper
+    const digDeeper = [
+      `Yes! I love that enthusiasm. Tell me more — what specifically about ${topic} excites you? The more I know, the better I can tailor our ${lang} conversations.`,
+      `Absolutely! So you're into ${topic}. Have you ever tried discussing it in ${lang} before? Even just a few words?`,
+      `That's great! Let's build on that. In ${lang}-speaking communities, ${topic} comes up a lot in daily conversation. What aspect of it do you enjoy most?`,
+    ];
+    response = digDeeper[turn % digDeeper.length] + wordTeach;
+    CONV_STATE.lastQuestion = 'what specifically about '+topic+' excites you';
+
+  } else if(hasNo){
+    // User said no - explore why, pivot naturally
+    const pivots = [
+      `No worries at all! Not everyone connects with ${topic} the same way. What IS something you feel passionate about right now? I want our conversations to feel relevant to your real life.`,
+      `Fair enough! Let's find something that resonates more with you. Is there a specific situation in life where you imagine yourself using ${lang}? A trip, a relationship, work?`,
+      `That's perfectly fine — I want our chats to feel natural and genuine. What topic would YOU like to explore in ${lang} today?`,
+    ];
+    response = pivots[turn % pivots.length] + wordTeach;
+    CONV_STATE.currentTopic = '';
+    CONV_STATE.exchangeCount = CONV_STATE.maxExchanges + 1; // force topic switch
+
+  } else if(isVeryShort){
+    // Short response - encourage more detail
+    const encourage = [
+      `I want to hear more! Can you expand on that? What do you mean exactly? The more you share, the more natural our ${lang} conversation practice becomes.`,
+      `Interesting — but tell me more! How does that connect to ${topic} for you? I'm genuinely curious about your perspective.`,
+      `Say more! I find this really interesting. What's the story behind that?`,
+    ];
+    response = encourage[turn % encourage.length] + wordTeach;
+
+  } else if(isLong){
+    // Long thoughtful response - acknowledge specifically and ask follow-up
+    const words = userText.split(' ');
+    const keyWord = words.find(w => w.length > 5) || topic;
+    response = `Wow, I love how thoughtfully you expressed that! The way you described "${keyWord}" tells me a lot about your personality. In ${lang}, we'd say something like that with real emotion too. ${wordTeach} Now here's what I'm wondering — you mentioned ${topic} connects to your life. Can you give me a specific example? Like a real moment or memory?`;
+    CONV_STATE.lastQuestion = 'a specific example or memory about '+topic;
+
+  } else if(CONV_STATE.exchangeCount === 2){
+    // Mid-topic - introduce bilingual element
+    const word = nextWords.length ? nextWords[0][0] : (data.words[0]?.[0] || 'hello');
+    response = `You know what's fascinating? In ${lang}-speaking cultures, when people talk about ${topic}, they often say things quite differently than in English. For example, the feeling you just described would be expressed with much more ${lang === 'Spanish' ? 'warmth and hand gestures' : lang === 'Japanese' ? 'indirectness and nuance' : lang === 'Arabic' ? 'poetic imagery' : lang === 'German' ? 'precision and compound words' : 'unique cultural flavor'}. ${wordTeach} Does that kind of cultural depth interest you when learning ${lang}?`;
+
+  } else if(CONV_STATE.exchangeCount === 3){
+    // Near end of topic exchange - personal connection
+    response = `I really feel like I'm getting to know you through this conversation about ${topic}! That's exactly how language learning should work — through real topics you care about. ${wordTeach} One last thing about ${topic} before we explore something new: ${p.lifeGoal ? 'you mentioned you want to ' + p.lifeGoal + ' — does ' + topic + ' play a role in that goal?' : 'what would you say to a native ' + lang + ' speaker about ' + topic + ' if you had the chance?'}`;
+
+  } else {
+    // Default - keep the conversation flowing naturally
+    const natural = [
+      `That really resonates with me! ${topic} is such a rich subject. Here's what I find most interesting about it from a ${lang} cultural perspective: it's deeply connected to daily life there. ${wordTeach} What's the most surprising thing you've discovered about ${topic}?`,
+      `I love where this conversation is going! You have a unique perspective on ${topic}. ${wordTeach} Here's a question that I think will be great for your ${lang} learning: if you had to describe your passion for ${topic} to a native ${lang} speaker who knew nothing about it, how would you start?`,
+      `That's a really genuine answer — I appreciate that! It helps me understand what motivates you. ${wordTeach} Let's dig a little deeper: how did ${topic} become part of your life? Was there a specific moment or person that introduced you to it?`,
+    ];
+    response = natural[turn % natural.length];
+    CONV_STATE.lastQuestion = 'how did '+topic+' become part of your life';
+  }
+
+  CONV_STATE.awaitingAnswer = response.includes('?');
   addMessage('ai', response, nextWords);
   setSpeaking(true);
-  const speakDuration = Math.min(8000, response.length * 40);
-  setTimeout(()=>setSpeaking(false), speakDuration);
-
-  STATE.stats.recognized += 1;
+  const duration = Math.min(10000, response.length * 35);
+  setTimeout(()=>setSpeaking(false), duration);
+  STATE.stats.recognized++;
   const sr = document.getElementById('stat-recognized'); if(sr) sr.textContent = STATE.stats.recognized;
 }
 
@@ -2948,65 +3000,190 @@ const ARABIC_LETTERS = {
   'ا': {name:'Alif',tip:'Long "aa" vowel. Mouth open, tongue relaxed in middle of mouth.'},
 };
 
+const SURAH_NAMES = {
+  1:'Al-Fatiha',2:'Al-Baqarah',3:'Al-Imran',4:'An-Nisa',5:'Al-Maidah',
+  6:'Al-Anam',7:'Al-Araf',8:'Al-Anfal',9:'At-Tawbah',10:'Yunus',
+  11:'Hud',12:'Yusuf',13:'Ar-Rad',14:'Ibrahim',15:'Al-Hijr',
+  16:'An-Nahl',17:'Al-Isra',18:'Al-Kahf',19:'Maryam',20:'Ta-Ha',
+  21:'Al-Anbiya',22:'Al-Hajj',23:'Al-Muminun',24:'An-Nur',25:'Al-Furqan',
+  26:'Ash-Shuara',27:'An-Naml',28:'Al-Qasas',29:'Al-Ankabut',30:'Ar-Rum',
+  31:'Luqman',32:'As-Sajdah',33:'Al-Ahzab',34:'Saba',35:'Fatir',
+  36:'Ya-Sin',37:'As-Saffat',38:'Sad',39:'Az-Zumar',40:'Ghafir',
+  41:'Fussilat',42:'Ash-Shura',43:'Az-Zukhruf',44:'Ad-Dukhan',45:'Al-Jathiyah',
+  46:'Al-Ahqaf',47:'Muhammad',48:'Al-Fath',49:'Al-Hujurat',50:'Qaf',
+  51:'Adh-Dhariyat',52:'At-Tur',53:'An-Najm',54:'Al-Qamar',55:'Ar-Rahman',
+  56:'Al-Waqiah',57:'Al-Hadid',58:'Al-Mujadila',59:'Al-Hashr',60:'Al-Mumtahanah',
+  61:'As-Saf',62:'Al-Jumuah',63:'Al-Munafiqun',64:'At-Taghabun',65:'At-Talaq',
+  66:'At-Tahrim',67:'Al-Mulk',68:'Al-Qalam',69:'Al-Haqqah',70:'Al-Maarij',
+  71:'Nuh',72:'Al-Jinn',73:'Al-Muzzammil',74:'Al-Muddaththir',75:'Al-Qiyamah',
+  76:'Al-Insan',77:'Al-Mursalat',78:'An-Naba',79:'An-Naziat',80:'Abasa',
+  81:'At-Takwir',82:'Al-Infitar',83:'Al-Mutaffifin',84:'Al-Inshiqaq',85:'Al-Buruj',
+  86:'At-Tariq',87:'Al-Ala',88:'Al-Ghashiyah',89:'Al-Fajr',90:'Al-Balad',
+  91:'Ash-Shams',92:'Al-Layl',93:'Ad-Dhuha',94:'Ash-Sharh',95:'At-Tin',
+  96:'Al-Alaq',97:'Al-Qadr',98:'Al-Bayyinah',99:'Az-Zalzalah',100:'Al-Adiyat',
+  101:'Al-Qariah',102:'At-Takathur',103:'Al-Asr',104:'Al-Humazah',105:'Al-Fil',
+  106:'Quraysh',107:'Al-Maun',108:'Al-Kawthar',109:'Al-Kafirun',110:'An-Nasr',
+  111:'Al-Masad',112:'Al-Ikhlas',113:'Al-Falaq',114:'An-Nas'
+};
+
+// Generate surah select options dynamically
+function populateSurahSelect(){
+  const sel = document.getElementById('surah-select');
+  if(!sel) return;
+  sel.innerHTML = Object.entries(SURAH_NAMES).map(([num,name])=>
+    `<option value="${num}">${name} (${num})</option>`
+  ).join('');
+}
+
 const SURAH_AYAHS = {
   '1': [
-    {arabic:'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', transliteration:'Bismillāhir-raḥmānir-raḥīm', translation:'In the name of Allah, the Most Gracious, the Most Merciful', letters:['ب','س','م','ل','ل','ه','ر','ح','م','ن','ر','ح','ي','م']},
-    {arabic:'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ', transliteration:'Alḥamdu lillāhi rabbil-ʿālamīn', translation:'All praise is due to Allah, Lord of all worlds', letters:['ح','م','د','ل','ل','ه','ر','ب','ل','ع','ل','م','ي','ن']},
-    {arabic:'الرَّحْمَٰنِ الرَّحِيمِ', transliteration:'Ar-raḥmānir-raḥīm', translation:'The Most Gracious, the Most Merciful', letters:['ر','ح','م','ن','ر','ح','ي','م']},
-    {arabic:'مَالِكِ يَوْمِ الدِّينِ', transliteration:'Māliki yawmid-dīn', translation:'Master of the Day of Judgment', letters:['م','ل','ك','ي','و','م','د','ي','ن']},
-    {arabic:'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ', transliteration:'Iyyāka naʿbudu wa-iyyāka nastaʿīn', translation:'You alone we worship, You alone we ask for help', letters:['ي','ك','ن','ع','ب','د','و','ي','ك','ن','س','ت','ع','ي','ن']},
-    {arabic:'اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ', transliteration:'Ihdinaṣ-ṣirāṭal-mustaqīm', translation:'Guide us to the straight path', letters:['ه','د','ن','ص','ر','ط','م','س','ت','ق','ي','م']},
-    {arabic:'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ', transliteration:'Ṣirāṭal-laḏīna anʿamta ʿalayhim', translation:'The path of those You have blessed', letters:['ص','ر','ط','ل','ذ','ي','ن','ن','ع','م','ت','ع','ل','ي','ه','م']},
+    {arabic:'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',transliteration:'Bismillāhir-raḥmānir-raḥīm',translation:'In the name of Allah, the Most Gracious, the Most Merciful'},
+    {arabic:'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ',transliteration:'Alḥamdu lillāhi rabbil-ʿālamīn',translation:'All praise is due to Allah, Lord of all the worlds'},
+    {arabic:'الرَّحْمَٰنِ الرَّحِيمِ',transliteration:'Ar-raḥmānir-raḥīm',translation:'The Most Gracious, the Most Merciful'},
+    {arabic:'مَالِكِ يَوْمِ الدِّينِ',transliteration:'Māliki yawmid-dīn',translation:'Master of the Day of Judgment'},
+    {arabic:'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ',transliteration:'Iyyāka naʿbudu wa-iyyāka nastaʿīn',translation:'You alone we worship, You alone we ask for help'},
+    {arabic:'اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ',transliteration:'Ihdinaṣ-ṣirāṭal-mustaqīm',translation:'Guide us to the straight path'},
+    {arabic:'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ',transliteration:'Ṣirāṭal-laḏīna anʿamta ʿalayhim',translation:'The path of those You have blessed, not those who earned anger, nor those who went astray'},
+  ],
+  '36': [
+    {arabic:'يسٓ',transliteration:'Yā-Sīn',translation:'Ya Sin'},
+    {arabic:'وَالْقُرْآنِ الْحَكِيمِ',transliteration:'Wal-Qurʾānil-ḥakīm',translation:'By the wise Quran'},
+    {arabic:'إِنَّكَ لَمِنَ الْمُرْسَلِينَ',transliteration:'Innaka laminal-mursalīn',translation:'Indeed you are among the messengers'},
+    {arabic:'عَلَىٰ صِرَاطٍ مُّسْتَقِيمٍ',transliteration:'ʿAlā ṣirāṭim-mustaqīm',translation:'On a straight path'},
+    {arabic:'تَنزِيلَ الْعَزِيزِ الرَّحِيمِ',transliteration:'Tanzīlal-ʿAzīzir-Raḥīm',translation:'A revelation of the Almighty, the Merciful'},
+  ],
+  '55': [
+    {arabic:'الرَّحْمَٰنُ',transliteration:'Ar-Raḥmān',translation:'The Most Merciful'},
+    {arabic:'عَلَّمَ الْقُرْآنَ',transliteration:'ʿAllamal-Qurʾān',translation:'Taught the Quran'},
+    {arabic:'خَلَقَ الْإِنسَانَ',transliteration:'Khalaqal-insān',translation:'Created mankind'},
+    {arabic:'عَلَّمَهُ الْبَيَانَ',transliteration:"ʿAllamahul-bayān",translation:'Taught him speech'},
+    {arabic:'فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ',transliteration:'Fabi-ayyi ālāi rabbikumā tukadhdhibān',translation:'Then which of your Lord favors will you both deny?'},
+  ],
+  '67': [
+    {arabic:'تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ',transliteration:'Tabārakal-laḏī biyadihil-mulk',translation:'Blessed is He in whose hand is dominion, and He is over all things competent'},
+    {arabic:'الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ',transliteration:'Allaḏī khalaqal-mawta wal-ḥayāh',translation:'He who created death and life'},
+    {arabic:'لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا',transliteration:'Liyabluwakum ayyukum aḥsanu ʿamalā',translation:'To test you as to which of you is best in deed'},
   ],
   '112': [
-    {arabic:'قُلْ هُوَ اللَّهُ أَحَدٌ', transliteration:'Qul huwallāhu aḥad', translation:'Say: He is Allah, the One', letters:['ق','ل','ه','و','ل','ل','ه','ح','د']},
-    {arabic:'اللَّهُ الصَّمَدُ', transliteration:'Allāhuṣ-ṣamad', translation:'Allah, the Eternal Refuge', letters:['ل','ل','ه','ص','م','د']},
-    {arabic:'لَمْ يَلِدْ وَلَمْ يُولَدْ', transliteration:'Lam yalid wa-lam yūlad', translation:'He neither begets nor is born', letters:['ل','م','ي','ل','د','و','ل','م','ي','و','ل','د']},
-    {arabic:'وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ', transliteration:'Wa-lam yakul-lahū kufuwan aḥad', translation:'Nor is there any equivalent to Him', letters:['و','ل','م','ي','ك','ن','ل','ه','ك','ف','و','ح','د']},
+    {arabic:'قُلْ هُوَ اللَّهُ أَحَدٌ',transliteration:'Qul huwallāhu aḥad',translation:'Say: He is Allah, the One'},
+    {arabic:'اللَّهُ الصَّمَدُ',transliteration:'Allāhuṣ-ṣamad',translation:'Allah, the Eternal Refuge'},
+    {arabic:'لَمْ يَلِدْ وَلَمْ يُولَدْ',transliteration:'Lam yalid wa-lam yūlad',translation:'He neither begets nor is born'},
+    {arabic:'وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ',transliteration:'Wa-lam yakul-lahū kufuwan aḥad',translation:'Nor is there to Him any equivalent'},
+  ],
+  '113': [
+    {arabic:'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ',transliteration:'Qul aʿūdhu birabbil-falaq',translation:'Say: I seek refuge in the Lord of daybreak'},
+    {arabic:'مِن شَرِّ مَا خَلَقَ',transliteration:'Min sharri mā khalaq',translation:'From the evil of what He has created'},
+    {arabic:'وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ',transliteration:'Wa-min sharri ghāsiqin idhā waqab',translation:'And from the evil of darkness when it settles'},
+    {arabic:'وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ',transliteration:'Wa-min sharrin-naffāthāti fil-ʿuqad',translation:'And from the evil of the blowers in knots'},
+    {arabic:'وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ',transliteration:'Wa-min sharri ḥāsidin idhā ḥasad',translation:'And from the evil of an envier when he envies'},
+  ],
+  '114': [
+    {arabic:'قُلْ أَعُوذُ بِرَبِّ النَّاسِ',transliteration:'Qul aʿūdhu birabbin-nās',translation:'Say: I seek refuge in the Lord of mankind'},
+    {arabic:'مَلِكِ النَّاسِ',transliteration:'Malikin-nās',translation:'The Sovereign of mankind'},
+    {arabic:'إِلَٰهِ النَّاسِ',transliteration:'Ilāhin-nās',translation:'The God of mankind'},
+    {arabic:'مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ',transliteration:'Min sharril-waswāsil-khannās',translation:'From the evil of the retreating whisperer'},
+    {arabic:'الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ',transliteration:'Alladhī yuwaswisu fī ṣudūrin-nās',translation:'Who whispers in the breasts of mankind'},
+    {arabic:'مِنَ الْجِنَّةِ وَالنَّاسِ',transliteration:'Minal-jinnati wan-nās',translation:'From among the jinn and mankind'},
   ],
 };
 
 let quranMicActive = false;
 let quranCurrentAyah = 0;
 let quranSelectedSurah = '1';
+let quranRec = null;
 
 function startQuranMic(){
   const btn = document.getElementById('quran-mic-btn');
   if(quranMicActive){
     quranMicActive = false;
+    if(quranRec) try{ quranRec.stop(); }catch(e){}
     btn.textContent = '🎤 Start Recitation';
+    btn.style.background = '';
     return;
   }
   quranMicActive = true;
-  btn.textContent = '⏹ Stop Recitation';
+  btn.textContent = '⏹ Stop';
+  btn.style.background = 'linear-gradient(135deg,#ff4757,#c0392b)';
   quranSelectedSurah = document.getElementById('surah-select')?.value || '1';
   const ayahs = SURAH_AYAHS[quranSelectedSurah];
-  if(!ayahs){ notify('Surah data loading...','info'); return; }
-
-  // Show current ayah to recite
+  if(!ayahs){
+    notify('Surah data not available for this selection yet','warning');
+    quranMicActive = false; btn.textContent = '🎤 Start Recitation'; btn.style.background='';
+    return;
+  }
   const ayah = ayahs[quranCurrentAyah % ayahs.length];
   showQuranAyahToRecite(ayah);
 
-  // Start speech recognition for Arabic
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition;
-  if(SR){
-    const rec = new SR();
-    rec.lang = 'ar-SA';
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e)=>{
-      const spoken = e.results[0][0].transcript;
-      analyzeQuranRecitation(spoken, ayah);
-    };
-    rec.onerror = ()=>{
-      // Fallback - show manual input
+  if(!SR){ showQuranManualInput(ayah); return; }
+
+  quranRec = new SR();
+  quranRec.lang = 'ar-SA';
+  quranRec.continuous = true;    // keep listening continuously
+  quranRec.interimResults = true; // get results AS you speak - live!
+  quranRec.maxAlternatives = 3;
+
+  quranRec.onresult = (e)=>{
+    let interimText = '';
+    let finalText = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal){ finalText += t; }
+      else { interimText += t; }
+    }
+    // Show live interim results immediately with partial highlighting
+    if(interimText){ updateLiveQuranHighlight(interimText, ayah, false); }
+    if(finalText){
+      updateLiveQuranHighlight(finalText, ayah, true);
+      analyzeQuranRecitation(finalText, ayah);
+    }
+  };
+
+  quranRec.onerror = (e)=>{
+    if(e.error === 'no-speech') return; // ignore silence
+    if(e.error === 'aborted') return;
+    if(e.error === 'not-allowed'){
+      notify('Mic blocked - allow microphone access','error');
+    } else {
       showQuranManualInput(ayah);
-    };
-    rec.onend = ()=>{ quranMicActive = false; btn.textContent = '🎤 Start Recitation'; };
-    rec.start();
-  } else {
-    showQuranManualInput(ayah);
-  }
+    }
+    quranMicActive = false; btn.textContent = '🎤 Start Recitation'; btn.style.background='';
+  };
+
+  quranRec.onend = ()=>{
+    if(quranMicActive){
+      // Restart to keep listening
+      try{ quranRec.start(); }catch(e){ quranMicActive=false; btn.textContent='🎤 Start Recitation'; btn.style.background=''; }
+    }
+  };
+
+  try{ quranRec.start(); }
+  catch(e){ notify('Could not start mic: '+e.message,'error'); quranMicActive=false; btn.textContent='🎤 Start Recitation'; btn.style.background=''; }
+}
+
+// Live highlight as user speaks - instant visual feedback
+function updateLiveQuranHighlight(spoken, ayah, isFinal){
+  const liveDisplay = document.getElementById('live-ayah-display');
+  if(!liveDisplay) return;
+  const target = ayah.arabic;
+  const targetChars = target.split('');
+  const spokenClean = spoken.replace(/[ًٌٍَُِّْٰ\s]/g,'');
+  const targetClean = target.replace(/[ًٌٍَُِّْٰ\s]/g,'');
+
+  liveDisplay.innerHTML = targetChars.map((ch,i)=>{
+    const cleanIdx = target.slice(0,i+1).replace(/[ًٌٍَُِّْٰ\s]/g,'').length - 1;
+    const spoken_ch = spokenClean[cleanIdx] || '';
+    const targetCh = targetClean[cleanIdx] || '';
+    if(!ch.trim()){ return '<span style="display:inline-block;width:8px"></span>'; }
+    if(cleanIdx >= spokenClean.length){
+      // Not yet spoken - show as pending (dim)
+      return `<span id="qletter-${i}" style="color:var(--text3);font-size:26px;font-family:serif;transition:all 0.15s">${ch}</span>`;
+    }
+    const isCorrect = spoken_ch === targetCh;
+    const color = isCorrect ? '#43e97b' : (isFinal ? '#ff6584' : '#f7c948');
+    const bg = isCorrect ? 'rgba(67,233,123,0.2)' : (isFinal ? 'rgba(255,101,132,0.2)' : 'rgba(247,201,72,0.15)');
+    return `<span id="qletter-${i}" style="color:${color};background:${bg};border-radius:3px;padding:0 1px;font-size:26px;font-family:serif;transition:all 0.15s;display:inline-block">${ch}</span>`;
+  }).join('');
 }
 
 function showQuranAyahToRecite(ayah){
