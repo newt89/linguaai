@@ -1995,36 +1995,77 @@ function switchModel(m){
 /* ============================================================
    VOICE / MIC
    ============================================================ */
+/* MIC: Chrome/Edge/Firefox use Web Speech API */
 function toggleMic(){
-  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
-    notify('🎤 Speech recognition not supported in this browser','error'); return;
-  }
   if(STATE.isListening){ stopMic(); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  STATE.recognition = new SR();
-  STATE.recognition.continuous = false;
-  STATE.recognition.interimResults = false;
-  STATE.recognition.lang = getLangCode(STATE.lang);
-  STATE.recognition.onstart = ()=>{
-    STATE.isListening = true;
-    document.getElementById('mic-btn').classList.add('listening','active');
-    document.getElementById('mic-btn').textContent = '🔴';
-    notify('🎤 Listening...','info');
-  };
-  STATE.recognition.onresult = e=>{
-    const transcript = e.results[0][0].transcript;
-    document.getElementById('chat-input').value = transcript;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || null;
+  if(SR){
+    STATE.recognition = new SR();
+    STATE.recognition.continuous = false;
+    STATE.recognition.interimResults = true;
+    STATE.recognition.lang = getLangCode(STATE.lang);
+    STATE.recognition.onstart = ()=>{
+      STATE.isListening = true;
+      document.getElementById('mic-btn').classList.add('listening','active');
+      document.getElementById('mic-btn').textContent = '🔴';
+      notify('🎤 Listening...','info');
+    };
+    STATE.recognition.onresult = e=>{
+      let interim='', final='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal) final += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      document.getElementById('chat-input').value = final || interim;
+      if(final){
+        STATE.stats.spoken++;
+        document.getElementById('stat-spoken').textContent = STATE.stats.spoken;
+        sendMessage();
+        if(!STATE.wordsSpoken.find(w=>w[0]===final)) STATE.wordsSpoken.push([final,'(spoken)']);
+        renderWordLists();
+      }
+    };
+    STATE.recognition.onerror = e=>{
+      stopMic();
+      if(e.error==='not-allowed') notify('🎤 Mic blocked - allow access in browser settings','error');
+      else notify('❌ Could not hear you. Try again.','error');
+    };
+    STATE.recognition.onend = ()=>stopMic();
+    STATE.recognition.start();
+    return;
+  }
+  // Firefox fallback — show about:config fix + text input
+  STATE.isListening = true;
+  document.getElementById('mic-btn').classList.add('listening','active');
+  document.getElementById('mic-btn').textContent = '\u{1F534}';
+  if(document.getElementById('ff-mic-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'ff-mic-overlay';
+  overlay.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--accent);border-radius:16px;padding:24px;z-index:5000;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 40px rgba(108,99,255,0.5);width:400px;max-width:92vw;';
+  overlay.innerHTML = '<div style="font-size:14px;font-weight:700;color:var(--accent)">\uD83E\uDD8A Enable Real Voice in Firefox</div><div style="font-size:12px;color:var(--text2);line-height:1.9;background:var(--bg3);padding:12px;border-radius:8px;border:1px solid var(--border)"><b>Step 1:</b> New tab \u2192 type <code style=\"background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--accent)\">about:config</code> \u2192 Enter<br><b>Step 2:</b> Search <code style=\"background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--accent)\">media.webspeech.recognition.enable</code><br><b>Step 3:</b> Click \u21c4 toggle \u2192 set to <b style=\"color:var(--accent3)\">true</b><br><b>Step 4:</b> Restart Firefox \u2192 mic works!</div><div style=\"font-size:13px;color:var(--text2)\">Or type below for now:</div><div style=\"display:flex;gap:8px\"><input id=\"ff-mic-input\" placeholder=\"Type your message...\" style=\"flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit\" onkeydown=\"if(event.key===&#39;Enter&#39;)submitFirefoxMic()\"><button onclick=\"submitFirefoxMic()\" style=\"background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit\">Send</button><button onclick=\"cancelFirefoxMic()\" style=\"background:var(--card2);color:var(--text2);border:1px solid var(--border);padding:10px 12px;border-radius:8px;cursor:pointer\">\u2715</button></div>';
+  document.body.appendChild(overlay);
+  setTimeout(()=>{ const i=document.getElementById('ff-mic-input'); if(i) i.focus(); }, 50);
+}
+
+function submitFirefoxMic(){
+  const input = document.getElementById('ff-mic-input');
+  if(!input) return;
+  const text = input.value.trim();
+  cancelFirefoxMic();
+  if(text){
+    document.getElementById('chat-input').value = text;
     STATE.stats.spoken++;
     document.getElementById('stat-spoken').textContent = STATE.stats.spoken;
     sendMessage();
-    if(!STATE.wordsSpoken.find(w=>w[0]===transcript)){
-      STATE.wordsSpoken.push([transcript, '(spoken)']);
-      renderWordLists();
-    }
-  };
-  STATE.recognition.onerror = ()=>{ stopMic(); notify('❌ Could not hear you. Try again.','error'); };
-  STATE.recognition.onend = ()=>stopMic();
-  STATE.recognition.start();
+    if(!STATE.wordsSpoken.find(w=>w[0]===text)) STATE.wordsSpoken.push([text,'(spoken)']);
+    renderWordLists();
+  }
+}
+
+function cancelFirefoxMic(){
+  const o = document.getElementById('ff-mic-overlay');
+  if(o) o.remove();
+  stopMic();
 }
 
 function stopMic(){
@@ -2239,69 +2280,124 @@ function startQuranMic(){
 const SHOP_CATEGORIES = [
   {
     name:'🛋️ Furniture', items:[
-      {emoji:'🛋️',name:'Luxury Sofa',desc:'Deep purple velvet sofa',price:120,pos:'left'},
-      {emoji:'🪑',name:'Ergonomic Chair',desc:'High-back gaming chair',price:80,pos:'right'},
-      {emoji:'📚',name:'Bookshelf',desc:'Floating oak bookshelf',price:90,pos:'back-left'},
-      {emoji:'🪴',name:'Neon Plant',desc:'Glowing bioluminescent plant',price:60,pos:'back-right'},
-      {emoji:'🖥️',name:'Hologram Desk',desc:'Floating glass work surface',price:200,pos:'right'},
-      {emoji:'🏮',name:'Paper Lantern',desc:'Soft ambient lantern',price:45,pos:'back-left'},
-      {emoji:'🪞',name:'Smart Mirror',desc:'AR-enabled wall mirror',price:150,pos:'back-right'},
-      {emoji:'🛏️',name:'Cloud Bed',desc:'Zero-gravity lounger',price:175,pos:'left'},
+      {emoji:'🪑',name:'Obsidian Throne',desc:'Black glass jagged chair',price:220,pos:'right'},
+      {emoji:'🛸',name:'Levitation Pod',desc:'Floating meditation seat',price:140,pos:'left'},
+      {emoji:'🧩',name:'Modular Cube Couch',desc:'Reconfigurable blocks',price:160,pos:'left'},
+      {emoji:'🪞',name:'Liquid Metal Chair',desc:'Morphing chrome seat',price:180,pos:'right'},
+      {emoji:'📐',name:'Fractal Table',desc:'Self-similar geometric desk',price:200,pos:'back-left'},
+      {emoji:'🪵',name:'Hollow Core Bench',desc:'Minimalist void bench',price:70,pos:'back-right'},
+      {emoji:'🤖',name:'AI Recliner',desc:'Auto-adjust posture seat',price:150,pos:'right'},
+      {emoji:'❄️',name:'Cryo Storage Bed',desc:'Frosted chamber bed',price:210,pos:'left'},
+      {emoji:'🧲',name:'Magnetic Shelf Grid',desc:'Floating panel storage',price:130,pos:'back-left'},
+      {emoji:'⚡',name:'Plasma Coffee Table',desc:'Glowing energy core',price:190,pos:'back-right'},
+      {emoji:'🌀',name:'Orbital Desk',desc:'Rotating ring workstation',price:175,pos:'back-left'},
+      {emoji:'🪑',name:'Carbon Fiber Stool',desc:'Ultra-light seat',price:65,pos:'right'},
+      {emoji:'🧠',name:'Neural Interface Chair',desc:'Brain sync seat',price:250,pos:'right'},
+      {emoji:'🚪',name:'Transparent Wardrobe',desc:'Glass closet',price:140,pos:'back-right'},
+      {emoji:'🔩',name:'Industrial Pipe Rack',desc:'Steel shelving',price:85,pos:'back-left'},
+      {emoji:'🛋️',name:'Nano Fabric Couch',desc:'Self-cleaning sofa',price:155,pos:'left'},
+      {emoji:'🛏️',name:'Foldable Wall Bed',desc:'Hidden sleeper',price:120,pos:'left'},
+      {emoji:'🌀',name:'Spiral Bookshelf',desc:'Helix shelf',price:110,pos:'back-right'},
+      {emoji:'🦾',name:'Mech Arm Desk',desc:'Robotic extension desk',price:210,pos:'back-left'},
+      {emoji:'🪐',name:'Anti-Gravity Table',desc:'Hovering surface',price:230,pos:'back-left'},
+      {emoji:'💎',name:'Crystal Chair',desc:'Prismatic seat',price:170,pos:'right'},
+      {emoji:'🦴',name:'Bone Structure Sofa',desc:'Organic design',price:160,pos:'left'},
+      {emoji:'📦',name:'Smart Storage Wall',desc:'AI sorting panels',price:180,pos:'back-right'},
+      {emoji:'🌟',name:'LED Embedded Couch',desc:'Light-lined sofa',price:145,pos:'left'},
+      {emoji:'🎵',name:'Sound Reactive Table',desc:'Vibrates to music',price:175,pos:'back-left'},
+      {emoji:'🪨',name:'Stone Slab Table',desc:'Heavy raw design',price:95,pos:'back-right'},
+      {emoji:'⛓️',name:'Chain Suspended Bench',desc:'Hanging seat',price:100,pos:'back-left'},
+      {emoji:'🔐',name:'Quantum Locker',desc:'Secure storage',price:210,pos:'back-right'},
+      {emoji:'🌈',name:'Neon Edge Desk',desc:'Glowing outline',price:150,pos:'back-left'},
+      {emoji:'🔲',name:'Glass Cube Chair',desc:'Transparent cube seat',price:130,pos:'right'},
+      {emoji:'🌿',name:'Bioform Sofa',desc:'Living material',price:260,pos:'left'},
+      {emoji:'🕳️',name:'Dark Matter Shelf',desc:'Light absorbing',price:200,pos:'back-right'},
+      {emoji:'🌊',name:'Gel Cushion Couch',desc:'Fluid comfort',price:125,pos:'left'},
+      {emoji:'🔮',name:'Orb Seat',desc:'Sphere chair',price:140,pos:'right'},
+      {emoji:'⚙️',name:'Reactor Core Table',desc:'Sci-fi centerpiece',price:250,pos:'back-left'},
+      {emoji:'🎮',name:'VR Immersion Chair',desc:'Full recline rig',price:300,pos:'right'},
+      {emoji:'📡',name:'Holographic Storage Unit',desc:'Digital shelves',price:210,pos:'back-right'},
+      {emoji:'🔵',name:'Plasma Arc Bench',desc:'Energy arcs seat',price:180,pos:'back-left'},
+      {emoji:'🧊',name:'Ice Block Chair',desc:'Frozen design',price:120,pos:'right'},
+      {emoji:'📏',name:'Wireframe Table',desc:'Minimal lines',price:90,pos:'back-right'},
+      {emoji:'🌐',name:'Glass Ring Table',desc:'Circular transparent',price:140,pos:'back-left'},
+      {emoji:'📱',name:'Motion Desk',desc:'Adjustable height',price:160,pos:'back-left'},
+      {emoji:'🔋',name:'Plasma Coil Seat',desc:'Energy wrapped',price:200,pos:'right'},
+      {emoji:'🫧',name:'Floating Cube Shelf',desc:'Modular cubes',price:110,pos:'back-right'},
+      {emoji:'🌱',name:'Organic Root Bench',desc:'Tree-inspired',price:100,pos:'back-left'},
+      {emoji:'🦿',name:'Chrome Spine Chair',desc:'Futuristic',price:180,pos:'right'},
+      {emoji:'🛸',name:'Floating Couch',desc:'Hover sofa',price:280,pos:'left'},
+      {emoji:'🧬',name:'Neural Sync Bed',desc:'Brainwave rest',price:300,pos:'left'},
+      {emoji:'🌙',name:'Cryo Bench',desc:'Frost seating',price:125,pos:'back-right'},
+      {emoji:'♾️',name:'Void Core Throne',desc:'Dark energy seat',price:320,pos:'right'},
     ]
   },
   {
     name:'💡 Lighting', items:[
-      {emoji:'🌈',name:'Rainbow Neons',desc:'RGB LED strips',price:50},
-      {emoji:'🌟',name:'Star Ceiling',desc:'Galaxy projector lights',price:80},
-      {emoji:'🕯️',name:'Candle Array',desc:'Floating candle cluster',price:40},
-      {emoji:'🔵',name:'Blue Ambiance',desc:'Cool blue floor lighting',price:55},
-      {emoji:'🟣',name:'Purple Glow',desc:'Deep violet room glow',price:55},
-      {emoji:'🟡',name:'Warm Sunset',desc:'Warm golden ambient',price:55},
-      {emoji:'⚡',name:'Lightning Rig',desc:'Electric effect lighting',price:100},
-      {emoji:'🌙',name:'Moon Lamp',desc:'Realistic moon sphere',price:65},
+      {emoji:'🔴',name:'Laser Grid Lights',desc:'Intersecting red beams',price:120,pos:'back-left'},
+      {emoji:'🌌',name:'Aurora Dome',desc:'Northern lights effect',price:150,pos:'back-right'},
+      {emoji:'🔵',name:'Plasma Orb',desc:'Electric sphere glow',price:100,pos:'back-left'},
+      {emoji:'⚡',name:'Pulse Strobe',desc:'Beat synced flashes',price:90,pos:'back-right'},
+      {emoji:'🌑',name:'Shadow Projector',desc:'Dynamic shadow art',price:85,pos:'back-left'},
+      {emoji:'🟠',name:'Infrared Glow',desc:'Heat spectrum light',price:70,pos:'back-right'},
+      {emoji:'🟣',name:'UV Strip Lights',desc:'Blacklight glow',price:75,pos:'back-left'},
+      {emoji:'✨',name:'Firefly Swarm',desc:'Floating light particles',price:130,pos:'back-right'},
+      {emoji:'☀️',name:'Hologram Sun',desc:'Artificial sunlight dome',price:160,pos:'back-left'},
+      {emoji:'💫',name:'Photon Beam',desc:'Focused shaft of light',price:110,pos:'back-right'},
+      {emoji:'⭕',name:'Ring Halo Lights',desc:'Circular glow rings',price:95,pos:'back-left'},
+      {emoji:'🧠',name:'Neural Pulse Lights',desc:'Brainwave sync glow',price:200,pos:'back-right'},
+      {emoji:'🌈',name:'Rainbow Neons',desc:'Full RGB LED strips',price:50,pos:'back-left'},
+      {emoji:'🌟',name:'Star Ceiling',desc:'Galaxy projector',price:80,pos:'back-right'},
+      {emoji:'🕯️',name:'Candle Array',desc:'Floating candle cluster',price:40,pos:'back-left'},
+      {emoji:'🔵',name:'Blue Ambiance',desc:'Cool blue floor lighting',price:55,pos:'back-right'},
+      {emoji:'🟡',name:'Warm Sunset',desc:'Golden ambient glow',price:55,pos:'back-left'},
+      {emoji:'🌙',name:'Moon Lamp',desc:'Realistic moon sphere',price:65,pos:'back-right'},
+      {emoji:'🔆',name:'Quantum Field Room',desc:'Physics light field',price:200,pos:'back-left'},
+      {emoji:'🎆',name:'Nova Burst',desc:'Supernova explosion art',price:175,pos:'back-right'},
     ]
   },
   {
     name:'🎨 Room Themes', items:[
-      {emoji:'🌌',name:'Deep Space',desc:'Cosmic dark theme',price:0},
-      {emoji:'🌿',name:'Zen Garden',desc:'Tranquil nature theme',price:75},
-      {emoji:'🏯',name:'Japanese Dojo',desc:'Traditional tatami room',price:120},
-      {emoji:'🏜️',name:'Desert Oasis',desc:'Warm sandy tones',price:90},
-      {emoji:'🌊',name:'Ocean Depths',desc:'Cool aqua tones',price:90},
-      {emoji:'🏙️',name:'Cyberpunk City',desc:'Neon future cityscape',price:150},
-      {emoji:'📜',name:'Ancient Library',desc:'Scholar\'s study room',price:110},
-      {emoji:'❄️',name:'Ice Palace',desc:'Crystal cold aesthetic',price:100},
-    ]
-  },
-  {
-    name:'🎵 Premium Voices', items:[
-      {emoji:'👸',name:'Aria (British)',desc:'Elegant British female',price:200},
-      {emoji:'🤴',name:'Kai (Australian)',desc:'Warm Australian male',price:200},
-      {emoji:'👵',name:'Yuki (Japanese)',desc:'Native Japanese female',price:250},
-      {emoji:'🧔',name:'Hassan (Arabic)',desc:'Native Arabic male',price:250},
-      {emoji:'👩‍🦰',name:'Sofia (Spanish)',desc:'Castilian Spanish female',price:200},
-      {emoji:'🧑‍🦲',name:'Otto (German)',desc:'Munich German male',price:200},
-      {emoji:'👩‍🦳',name:'Natasha (Russian)',desc:'Moscow Russian female',price:200},
-      {emoji:'🧙',name:'Arjun (Sanskrit)',desc:'Vedic Sanskrit scholar',price:300},
+      {emoji:'🌌',name:'Deep Space',desc:'Cosmic dark theme',price:0,pos:''},
+      {emoji:'🌿',name:'Zen Garden',desc:'Tranquil nature theme',price:75,pos:''},
+      {emoji:'🏯',name:'Japanese Dojo',desc:'Traditional tatami room',price:120,pos:''},
+      {emoji:'🏜️',name:'Desert Oasis',desc:'Warm sandy tones',price:90,pos:''},
+      {emoji:'🌊',name:'Ocean Depths',desc:'Cool aqua aesthetic',price:90,pos:''},
+      {emoji:'🏙️',name:'Cyberpunk City',desc:'Neon future cityscape',price:150,pos:''},
+      {emoji:'📜',name:'Ancient Library',desc:'Scholar study room',price:110,pos:''},
+      {emoji:'❄️',name:'Ice Palace',desc:'Crystal cold aesthetic',price:100,pos:''},
+      {emoji:'🌋',name:'Volcano Core',desc:'Lava and fire tones',price:130,pos:''},
+      {emoji:'🌸',name:'Sakura Garden',desc:'Japanese spring bloom',price:120,pos:''},
+      {emoji:'🏛️',name:'Roman Forum',desc:'Ancient marble halls',price:140,pos:''},
+      {emoji:'🛸',name:'Alien World',desc:'Extraterrestrial biome',price:160,pos:''},
     ]
   },
   {
     name:'🎒 Accessories', items:[
-      {emoji:'🎓',name:'Scholar\'s Hat',desc:'AI wears graduation hat',price:30},
-      {emoji:'👓',name:'Smartglasses',desc:'Holographic eyewear',price:50},
-      {emoji:'🎙️',name:'Vintage Mic',desc:'Classic broadcast mic',price:40},
-      {emoji:'🌐',name:'Globe Orb',desc:'Spinning world globe',price:60},
-      {emoji:'📿',name:'Prayer Beads',desc:'Islamic Misbaha beads',price:35},
-      {emoji:'🎋',name:'Bamboo Staff',desc:'Zen wooden staff',price:25},
-      {emoji:'⛩️',name:'Torii Gate',desc:'Mini Japanese gate',price:80},
-      {emoji:'🕌',name:'Mosque Model',desc:'Detailed mosque replica',price:90},
+      {emoji:'🎓',name:"Scholar's Hat",desc:'AI wears graduation hat',price:30,pos:''},
+      {emoji:'👓',name:'Smartglasses',desc:'Holographic eyewear',price:50,pos:''},
+      {emoji:'🎙️',name:'Vintage Mic',desc:'Classic broadcast mic',price:40,pos:'back-left'},
+      {emoji:'🌐',name:'Globe Orb',desc:'Spinning world globe',price:60,pos:'back-right'},
+      {emoji:'📿',name:'Prayer Beads',desc:'Islamic Misbaha beads',price:35,pos:'back-left'},
+      {emoji:'🎋',name:'Bamboo Staff',desc:'Zen wooden staff',price:25,pos:'back-right'},
+      {emoji:'⛩️',name:'Torii Gate',desc:'Mini Japanese gate',price:80,pos:'left'},
+      {emoji:'🕌',name:'Mosque Model',desc:'Detailed mosque replica',price:90,pos:'right'},
+      {emoji:'🗿',name:'Stone Idol',desc:'Ancient carved figure',price:70,pos:'left'},
+      {emoji:'🔭',name:'Star Telescope',desc:'Brass observatory scope',price:100,pos:'right'},
+      {emoji:'🪬',name:'Hamsa Charm',desc:'Protective hand symbol',price:40,pos:'back-left'},
+      {emoji:'🏺',name:'Ancient Amphora',desc:'Greek ceramic vase',price:55,pos:'back-right'},
+      {emoji:'🎴',name:'Kanji Wall Art',desc:'Brushstroke characters',price:65,pos:'back-left'},
+      {emoji:'📯',name:'Viking Horn',desc:'Norse ceremonial horn',price:75,pos:'back-right'},
+      {emoji:'🧿',name:'Evil Eye Ornament',desc:'Turkish nazar bead',price:35,pos:'back-left'},
+      {emoji:'🪆',name:'Matryoshka Set',desc:'Russian nesting dolls',price:50,pos:'back-right'},
     ]
   },
 ];
 
 function generateShop(){
   const el = document.getElementById('shop-content');
-  if(!el||el.children.length>0) return;
+  if(!el) return;
+  el.innerHTML = ''; // always re-render so owned status is fresh
   let html = '';
   SHOP_CATEGORIES.forEach(cat=>{
     html += `<div class="shop-section"><h2>${cat.name}</h2><div class="shop-grid">`;
