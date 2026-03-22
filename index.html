@@ -144,8 +144,12 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
 .logo{
   font-family:var(--font-head);font-weight:800;font-size:22px;
   background:linear-gradient(90deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  color:transparent;
   letter-spacing:-0.03em;
+  display:inline-block;
 }
 .topbar-right{display:flex;align-items:center;gap:12px}
 #theme-toggle{
@@ -163,6 +167,12 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
   cursor:pointer;transition:var(--transition);
 }
 .user-badge:hover{border-color:var(--accent);color:var(--text)}
+.dropdown-item{
+  padding:9px 14px;border-radius:8px;font-size:13px;font-weight:500;
+  color:var(--text2);cursor:pointer;transition:var(--transition);
+  display:flex;align-items:center;gap:8px;
+}
+.dropdown-item:hover{background:var(--card2);color:var(--text)}
 .avatar{
   width:26px;height:26px;border-radius:50%;
   background:linear-gradient(135deg,var(--accent),var(--accent2));
@@ -201,7 +211,11 @@ body.light #topbar{background:rgba(240,240,250,0.9)}
 }
 .hero h1 span{
   background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  color:transparent;
+  display:inline-block;
 }
 .hero p{
   font-size:18px;color:var(--text2);max-width:560px;margin:0 auto 36px;
@@ -817,10 +831,46 @@ canvas.chart{width:100%!important;max-height:200px}
   .ai-video-panel{display:none}
   .word-list-grid{grid-template-columns:1fr}
 }
+@media(max-width:900px){
+  .dash-layout{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .chat-layout{grid-template-columns:1fr}
+  .ai-video-panel{display:none}
+  .word-list-grid{grid-template-columns:1fr}
+}
 @media(max-width:600px){
-  .hero h1{font-size:36px}
+  /* Fix gradient text on mobile — must have display:inline-block */
+  .hero h1{font-size:clamp(28px,9vw,42px);line-height:1.15}
+  .hero h1 span{
+    display:inline-block;
+    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    color:transparent;
+    padding-bottom:2px;/* prevents clipping on some mobile browsers */
+  }
+  .logo{
+    font-size:18px;
+    display:inline-block;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    color:transparent;
+  }
+  /* Hide signup button text on very small screens */
+  .topbar-right .btn-primary span{ display:none }
   .pricing-grid,.pay-tiers{grid-template-columns:1fr}
   .modal{padding:28px 20px}
+  .hero{padding:60px 16px 40px}
+  .hero p{font-size:15px}
+  .hero-btns{flex-direction:column;align-items:center}
+  .features{grid-template-columns:1fr;padding:40px 16px}
+  .lang-pills{gap:8px}
+  .lang-pill{font-size:12px;padding:6px 12px}
+  #topbar{padding:0 12px}
+  .stats-row{grid-template-columns:1fr 1fr}
 }
 /* ============================================================
    PROGRESS RING
@@ -846,11 +896,34 @@ canvas.chart{width:100%!important;max-height:200px}
       <button class="btn btn-ghost btn-sm" onclick="showModal('login')">Log In</button>
       <button class="btn btn-primary btn-sm" onclick="showModal('register')">Sign Up Free</button>
     </div>
-    <div id="topbar-user" class="hidden">
-      <div class="user-badge" onclick="navigate('dashboard')">
+    <div id="topbar-user" class="hidden" style="position:relative">
+      <div class="user-badge" onclick="toggleUserMenu()" id="user-badge-btn">
         <div class="avatar" id="user-avatar-top">A</div>
         <span id="user-name-top">User</span>
-        <span>▾</span>
+        <span id="user-arrow" style="transition:transform 0.2s;display:inline-block">▾</span>
+      </div>
+      <!-- Dropdown menu -->
+      <div id="user-dropdown" style="
+        display:none;position:absolute;top:calc(100% + 8px);right:0;
+        background:var(--card);border:1px solid var(--border);
+        border-radius:var(--radius);padding:8px;min-width:200px;
+        box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:2000;
+        animation:modal-in 0.2s ease;
+      ">
+        <div style="padding:12px 14px 10px;border-bottom:1px solid var(--border);margin-bottom:6px">
+          <div style="font-weight:700;font-size:14px" id="dropdown-name">User</div>
+          <div style="font-size:11px;color:var(--text3)" id="dropdown-plan">Free Plan</div>
+        </div>
+        <div class="dropdown-item" onclick="navigate('dashboard');closeUserMenu()">🏠 Dashboard</div>
+        <div class="dropdown-item" onclick="showPanel('chat');navigate('dashboard');closeUserMenu()">💬 AI Tutor</div>
+        <div class="dropdown-item" onclick="showPanel('stats');navigate('dashboard');closeUserMenu()">📊 My Progress</div>
+        <div class="dropdown-item" onclick="showPanel('shop');navigate('dashboard');closeUserMenu()">🛍️ Shop</div>
+        <div class="dropdown-item" onclick="showPanel('room');navigate('dashboard');closeUserMenu()">🛋️ AI Room</div>
+        <div id="dropdown-admin" class="dropdown-item hidden" onclick="showPanel('admin');navigate('dashboard');closeUserMenu()" style="color:var(--accent2)">⚙️ Master Admin</div>
+        <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+          <div class="dropdown-item" onclick="openPayment('coins',300);closeUserMenu()" style="color:var(--gold)">🪙 Buy Coins</div>
+          <div class="dropdown-item" onclick="logout();closeUserMenu()" style="color:var(--accent2)">🚪 Log Out</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1819,9 +1892,13 @@ function loginSuccess(user, isMaster){
   document.getElementById('topbar-user').classList.remove('hidden');
   document.getElementById('user-avatar-top').textContent = user.name.charAt(0).toUpperCase();
   document.getElementById('user-name-top').textContent = isMaster ? '👑 '+user.name : user.name;
+  document.getElementById('dropdown-name').textContent = isMaster ? '👑 '+user.name : user.name;
+  document.getElementById('dropdown-plan').textContent = isMaster ? 'Master Account ∞' : (STATE.plan==='pro' ? 'Pro Plan' : 'Free Plan');
   document.getElementById('dash-welcome-name').textContent = user.name;
-  if(isMaster){ document.getElementById('nav-admin-link').classList.remove('hidden'); }
-  closeModal('login'); closeModal('register');
+  if(isMaster){
+    document.getElementById('nav-admin-link').classList.remove('hidden');
+    document.getElementById('dropdown-admin').classList.remove('hidden');
+  }
   // Go to onboarding if new user
   if(!isMaster && (!user.langs || user.langs.length===0)){ navigate('onboarding'); }
   else { navigate('dashboard'); notify('Welcome back, '+user.name+'! 🎉','success'); }
@@ -1829,10 +1906,36 @@ function loginSuccess(user, isMaster){
 
 function logout(){
   STATE.isLoggedIn=false; STATE.user=null; STATE.isMaster=false;
+  closeUserMenu();
   document.getElementById('topbar-auth').classList.remove('hidden');
   document.getElementById('topbar-user').classList.add('hidden');
   navigate('landing');
+  notify('Logged out. See you soon! 👋','info');
 }
+
+function toggleUserMenu(){
+  const dd = document.getElementById('user-dropdown');
+  const arrow = document.getElementById('user-arrow');
+  const isOpen = dd.style.display === 'block';
+  dd.style.display = isOpen ? 'none' : 'block';
+  arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function closeUserMenu(){
+  const dd = document.getElementById('user-dropdown');
+  const arrow = document.getElementById('user-arrow');
+  if(dd) dd.style.display = 'none';
+  if(arrow) arrow.style.transform = 'rotate(0deg)';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e=>{
+  const badge = document.getElementById('user-badge-btn');
+  const dd = document.getElementById('user-dropdown');
+  if(dd && badge && !badge.contains(e.target) && !dd.contains(e.target)){
+    closeUserMenu();
+  }
+});
 
 /* ============================================================
    ONBOARDING
@@ -2597,35 +2700,72 @@ function renderRoom(){
 /* ============================================================
    VOICES
    ============================================================ */
+const VOICE_SAMPLES = {
+  'Aria':    { text:"Hello! I am Aria, your British English tutor. Shall we begin today?", lang:'en-GB', rate:0.9, pitch:1.1 },
+  'Kai':     { text:"G'day! I'm Kai, your Australian English guide. Let's learn together!", lang:'en-AU', rate:1.0, pitch:0.9 },
+  'Yuki':    { text:"こんにちは！私はYukiです。日本語を一緒に学びましょう！", lang:'ja-JP', rate:0.85, pitch:1.2 },
+  'Hassan':  { text:"السلام عليكم. أنا حسن، مدرسك للغة العربية الفصحى.", lang:'ar-SA', rate:0.8, pitch:0.85 },
+  'Sofia':   { text:"¡Hola! Soy Sofía, tu tutora de español. ¡Empecemos!", lang:'es-ES', rate:0.9, pitch:1.1 },
+  'Otto':    { text:"Guten Tag! Ich bin Otto, dein Deutschlehrer. Fangen wir an!", lang:'de-DE', rate:0.9, pitch:0.85 },
+  'Natasha': { text:"Привет! Я Наташа, твой преподаватель русского языка. Начнём!", lang:'ru-RU', rate:0.85, pitch:1.1 },
+  'Arjun':   { text:"नमस्ते! अहं अर्जुनः। संस्कृतं पठामः।", lang:'hi-IN', rate:0.8, pitch:0.9 },
+  'Joon':    { text:"안녕하세요! 저는 준입니다. 한국어를 함께 배워봐요!", lang:'ko-KR', rate:0.9, pitch:1.0 },
+  'Maria':   { text:"¡Hola! Soy María de Colombia. ¡Aprendamos español juntos!", lang:'es-CO', rate:0.95, pitch:1.15 },
+};
+
+function previewVoice(name){
+  const sample = VOICE_SAMPLES[name];
+  if(!sample || !window.speechSynthesis){ notify('Preview not available in this browser','info'); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(sample.text);
+  u.lang = sample.lang; u.rate = sample.rate; u.pitch = sample.pitch;
+  // Wait for voices to load then find best match
+  const trySpeak = ()=>{
+    const allVoices = window.speechSynthesis.getVoices();
+    const langCode = sample.lang.split('-')[0];
+    const match = allVoices.find(v=>v.lang.startsWith(sample.lang)) || allVoices.find(v=>v.lang.startsWith(langCode));
+    if(match) u.voice = match;
+    window.speechSynthesis.speak(u);
+    notify('🔊 Previewing ' + name + '...','info');
+  };
+  if(window.speechSynthesis.getVoices().length > 0){ trySpeak(); }
+  else { window.speechSynthesis.onvoiceschanged = trySpeak; }
+}
+
 function generateVoices(){
   const grid = document.getElementById('voices-grid');
-  if(!grid||grid.children.length>0) return;
+  if(!grid) return;
+  grid.innerHTML = '';
   const voices = [
-    { icon:'👸', name:'Aria', lang:'British English', desc:'Elegant, clear RP accent. Perfect for formal learning.', price:200, gender:'Female' },
-    { icon:'🤴', name:'Kai', lang:'Australian English', desc:'Warm, relaxed Australian. Great for casual chat.', price:200, gender:'Male' },
-    { icon:'👩', name:'Yuki', lang:'Japanese', desc:'Native Tokyo dialect. Authentic pronunciation guide.', price:250, gender:'Female' },
-    { icon:'🧔', name:'Hassan', lang:'Arabic', desc:'Classical Fusha Arabic. Perfect for Quran learners.', price:250, gender:'Male' },
-    { icon:'👩‍🦰', name:'Sofia', lang:'Castilian Spanish', desc:'Madrid accent, clear and traditional.', price:200, gender:'Female' },
-    { icon:'🧑‍🦲', name:'Otto', lang:'German', desc:'High German (Hochdeutsch). Crisp and precise.', price:200, gender:'Male' },
-    { icon:'👩‍🦳', name:'Natasha', lang:'Russian', desc:'Moscow dialect, perfect clarity.', price:200, gender:'Female' },
-    { icon:'🧙', name:'Arjun', lang:'Sanskrit', desc:'Vedic pronunciation from ancient tradition.', price:300, gender:'Male' },
-    { icon:'👦', name:'Joon', lang:'Korean', desc:'Seoul dialect, modern Korean accent.', price:220, gender:'Male' },
-    { icon:'👩‍🦱', name:'Maria', lang:'Latin American Spanish', desc:'Colombian Spanish, widely understood.', price:200, gender:'Female' },
+    { icon:'👸', name:'Aria',    lang:'British English',        desc:'Elegant RP accent, formal and clear.',           price:200 },
+    { icon:'🤴', name:'Kai',     lang:'Australian English',     desc:'Warm and relaxed, great for casual chat.',       price:200 },
+    { icon:'👩', name:'Yuki',    lang:'Japanese',               desc:'Native Tokyo dialect, authentic pronunciation.', price:250 },
+    { icon:'🧔', name:'Hassan',  lang:'Arabic (Fusha)',         desc:'Classical Arabic, perfect for Quran learners.',  price:250 },
+    { icon:'👩', name:'Sofia',   lang:'Castilian Spanish',      desc:'Madrid accent, traditional and clear.',          price:200 },
+    { icon:'🧑', name:'Otto',    lang:'German (Hochdeutsch)',   desc:'High German, crisp and precise.',                price:200 },
+    { icon:'👩', name:'Natasha', lang:'Russian (Moscow)',       desc:'Moscow dialect, perfect clarity.',               price:200 },
+    { icon:'🧙', name:'Arjun',   lang:'Sanskrit / Hindi',      desc:'Vedic Sanskrit, ancient tradition.',             price:300 },
+    { icon:'👦', name:'Joon',    lang:'Korean (Seoul)',         desc:'Seoul dialect, modern accent.',                  price:220 },
+    { icon:'👩', name:'Maria',   lang:'Latin American Spanish', desc:'Colombian Spanish, widely understood.',          price:200 },
   ];
   grid.innerHTML = voices.map(v=>{
     const owned = STATE.ownedVoices.includes(v.name);
-    return `<div class="voice-card">
-      <div class="voice-icon">${v.icon}</div>
-      <div class="voice-info">
-        <div class="voice-name">${v.name} — ${v.lang}</div>
-        <div class="voice-desc">${v.desc}</div>
-      </div>
-      <button class="btn ${owned?'btn-ghost':'btn-gold'} btn-sm" onclick="buyVoice('${v.name}',${v.price})">
-        ${owned ? '✅ Active' : `🪙 ${v.price}`}
-      </button>
-    </div>`;
+    return '<div class="voice-card">' +
+      '<div class="voice-icon">' + v.icon + '</div>' +
+      '<div class="voice-info">' +
+        '<div class="voice-name">' + v.name + ' — ' + v.lang + '</div>' +
+        '<div class="voice-desc">' + v.desc + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:10px">' +
+          '<button class="btn btn-ghost btn-sm" onclick="previewVoice('' + v.name + '')" style="font-size:12px;padding:6px 12px">🔊 Preview</button>' +
+          '<button class="btn ' + (owned?'btn-ghost':'btn-gold') + ' btn-sm" onclick="buyVoice('' + v.name + '',' + v.price + ')">' +
+            (owned ? '✅ Active' : '🪙 ' + v.price) +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
+
 
 function buyVoice(name, price){
   if(STATE.ownedVoices.includes(name)){ notify('Voice already owned!','info'); return; }
