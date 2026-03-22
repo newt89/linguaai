@@ -2001,37 +2001,73 @@ function toggleMic(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || null;
   if(SR){
     STATE.recognition = new SR();
-    STATE.recognition.continuous = false;
-    STATE.recognition.interimResults = true;
+    STATE.recognition.continuous = true;       // keep listening until user stops
+    STATE.recognition.interimResults = true;   // show words as they come
+    STATE.recognition.maxAlternatives = 1;
     STATE.recognition.lang = getLangCode(STATE.lang);
+    let gotResult = false;
+    let finalTranscript = '';
+
     STATE.recognition.onstart = ()=>{
       STATE.isListening = true;
+      gotResult = false;
+      finalTranscript = '';
       document.getElementById('mic-btn').classList.add('listening','active');
       document.getElementById('mic-btn').textContent = '🔴';
-      notify('🎤 Listening...','info');
+      notify('🎤 Listening — speak now, click 🔴 to stop','info');
     };
+
     STATE.recognition.onresult = e=>{
-      let interim='', final='';
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        if(e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
+      let interim = '';
+      for(let i = e.resultIndex; i < e.results.length; i++){
+        const t = e.results[i][0].transcript;
+        if(e.results[i].isFinal){
+          finalTranscript += t;
+          gotResult = true;
+        } else {
+          interim += t;
+        }
       }
-      document.getElementById('chat-input').value = final || interim;
-      if(final){
+      // Show live transcript in input box
+      document.getElementById('chat-input').value = finalTranscript || interim;
+    };
+
+    STATE.recognition.onerror = e=>{
+      // 'no-speech' is not a real error — just silence, ignore it
+      if(e.error === 'no-speech') return;
+      // 'aborted' happens when we manually stop — ignore
+      if(e.error === 'aborted') return;
+      stopMic();
+      if(e.error === 'not-allowed' || e.error === 'permission-denied'){
+        notify('🎤 Mic blocked — click the 🔒 icon in address bar and allow mic','error');
+      } else if(e.error === 'network'){
+        notify('🌐 Network error — check your connection','error');
+      } else {
+        notify(`🎤 Mic error: ${e.error} — try again`,'error');
+      }
+    };
+
+    STATE.recognition.onend = ()=>{
+      // If we have a final transcript, send it
+      if(gotResult && finalTranscript.trim()){
+        document.getElementById('chat-input').value = finalTranscript.trim();
         STATE.stats.spoken++;
         document.getElementById('stat-spoken').textContent = STATE.stats.spoken;
         sendMessage();
-        if(!STATE.wordsSpoken.find(w=>w[0]===final)) STATE.wordsSpoken.push([final,'(spoken)']);
-        renderWordLists();
+        if(!STATE.wordsSpoken.find(w=>w[0]===finalTranscript.trim())){
+          STATE.wordsSpoken.push([finalTranscript.trim(),'(spoken)']);
+          renderWordLists();
+        }
       }
-    };
-    STATE.recognition.onerror = e=>{
       stopMic();
-      if(e.error==='not-allowed') notify('🎤 Mic blocked - allow access in browser settings','error');
-      else notify('❌ Could not hear you. Try again.','error');
     };
-    STATE.recognition.onend = ()=>stopMic();
-    STATE.recognition.start();
+
+    try {
+      STATE.recognition.start();
+    } catch(err){
+      notify('🎤 Could not start mic — try clicking again','error');
+      stopMic();
+    }
     return;
   }
   // Firefox fallback — show about:config fix + text input
